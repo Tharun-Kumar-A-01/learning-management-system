@@ -57,9 +57,9 @@ export default function Login() {
 
                     <div className="flex items-center justify-between">
                         <div className="text-sm">
-                            <a href="#" className="font-medium text-indigo-500 hover:text-indigo-400">
+                            <Link to="/forgot-password" className="font-medium text-indigo-500 hover:text-indigo-400">
                                 Forgot your password?
-                            </a>
+                            </Link>
                         </div>
                     </div>
 

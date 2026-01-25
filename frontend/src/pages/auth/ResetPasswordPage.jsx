@@ -1,33 +1,47 @@
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { useParams, useNavigate, Link } from 'react-router-dom';
 import { Input } from '../../components/ui/TextInput';
 import { Button } from '../../components/ui/Button';
-import { EnvelopeIcon, ArrowLeftIcon, CheckCircleIcon } from '@heroicons/react/24/outline';
+import { LockClosedIcon, ArrowLeftIcon, CheckCircleIcon, ExclamationTriangleIcon } from '@heroicons/react/24/outline';
 
-export default function ForgotPasswordPage() {
-    const [email, setEmail] = useState('');
+export default function ResetPasswordPage() {
+    const { token } = useParams();
+    const navigate = useNavigate();
+    const [password, setPassword] = useState('');
+    const [confirmPassword, setConfirmPassword] = useState('');
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
     const [success, setSuccess] = useState(false);
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        setLoading(true);
         setError('');
 
+        if (password !== confirmPassword) {
+            setError('Passwords do not match');
+            return;
+        }
+
+        if (password.length < 6) {
+            setError('Password must be at least 6 characters');
+            return;
+        }
+
+        setLoading(true);
+
         try {
-            const res = await fetch('http://localhost:5000/api/auth/forgot-password', {
+            const res = await fetch(`http://localhost:5000/api/auth/reset-password/${token}`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
                 },
-                body: JSON.stringify({ email })
+                body: JSON.stringify({ password })
             });
 
             const data = await res.json();
 
             if (!res.ok) {
-                throw new Error(data.message || 'Failed to send reset email');
+                throw new Error(data.message || 'Failed to reset password');
             }
 
             setSuccess(true);
@@ -46,20 +60,40 @@ export default function ForgotPasswordPage() {
                         <div className="mx-auto w-16 h-16 bg-[#5dff4f]/10 rounded-full flex items-center justify-center mb-4">
                             <CheckCircleIcon className="w-8 h-8 text-[#5dff4f]" />
                         </div>
-                        <h2 className="text-2xl font-bold text-white mb-2">Check your email</h2>
+                        <h2 className="text-2xl font-bold text-white mb-2">Password Reset Successful</h2>
                         <p className="text-zinc-400 text-sm">
-                            We've sent a password reset link to <strong className="text-white">{email}</strong>
-                        </p>
-                        <p className="text-zinc-500 text-xs mt-2">
-                            The link will expire in 10 minutes.
+                            Your password has been successfully reset. You can now log in with your new password.
                         </p>
                     </div>
                     <Link
                         to="/login"
                         className="flex items-center justify-center gap-2 w-full px-4 py-2 bg-[#5f82f3] text-white rounded-lg hover:bg-[#4a6fd3] transition-colors"
                     >
-                        <ArrowLeftIcon className="w-4 h-4" />
-                        Back to Login
+                        Continue to Login
+                    </Link>
+                </div>
+            </div>
+        );
+    }
+
+    if (!token) {
+        return (
+            <div className="min-h-screen flex items-center justify-center bg-black p-4">
+                <div className="max-w-md w-full space-y-8 bg-zinc-900 p-8 rounded-xl border border-white/10">
+                    <div className="text-center">
+                        <div className="mx-auto w-16 h-16 bg-[#ff4848]/10 rounded-full flex items-center justify-center mb-4">
+                            <ExclamationTriangleIcon className="w-8 h-8 text-[#ff4848]" />
+                        </div>
+                        <h2 className="text-2xl font-bold text-white mb-2">Invalid Reset Link</h2>
+                        <p className="text-zinc-400 text-sm">
+                            This password reset link is invalid. Please request a new one.
+                        </p>
+                    </div>
+                    <Link
+                        to="/forgot-password"
+                        className="flex items-center justify-center gap-2 w-full px-4 py-2 bg-[#5f82f3] text-white rounded-lg hover:bg-[#4a6fd3] transition-colors"
+                    >
+                        Request New Link
                     </Link>
                 </div>
             </div>
@@ -71,13 +105,13 @@ export default function ForgotPasswordPage() {
             <div className="max-w-md w-full space-y-8 bg-zinc-900 p-8 rounded-xl border border-white/10">
                 <div>
                     <div className="mx-auto w-16 h-16 bg-[#5f82f3]/10 rounded-full flex items-center justify-center mb-4">
-                        <EnvelopeIcon className="w-8 h-8 text-[#5f82f3]" />
+                        <LockClosedIcon className="w-8 h-8 text-[#5f82f3]" />
                     </div>
                     <h2 className="text-center text-2xl font-bold text-white">
-                        Forgot your password?
+                        Set New Password
                     </h2>
                     <p className="text-center text-zinc-400 text-sm mt-2">
-                        Enter your email address and we'll send you a link to reset your password.
+                        Enter your new password below.
                     </p>
                 </div>
 
@@ -89,16 +123,25 @@ export default function ForgotPasswordPage() {
                     )}
 
                     <Input
-                        label="Email address"
-                        type="email"
+                        label="New Password"
+                        type="password"
                         required
-                        value={email}
-                        onChange={(e) => setEmail(e.target.value)}
-                        placeholder="Enter your email"
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        placeholder="Enter new password"
+                    />
+
+                    <Input
+                        label="Confirm Password"
+                        type="password"
+                        required
+                        value={confirmPassword}
+                        onChange={(e) => setConfirmPassword(e.target.value)}
+                        placeholder="Confirm new password"
                     />
 
                     <Button type="submit" disabled={loading} className="w-full justify-center">
-                        {loading ? 'Sending...' : 'Send Reset Link'}
+                        {loading ? 'Resetting...' : 'Reset Password'}
                     </Button>
 
                     <div className="text-center">

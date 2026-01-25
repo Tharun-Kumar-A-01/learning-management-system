@@ -56,7 +56,7 @@ export default function TrainerDashboard() {
                 </div>
                 <Link
                     to="/courses/create"
-                    className="flex items-center gap-2 px-4 py-2 bg-[#5f82f3] text-white text-sm rounded-lg hover:bg-[#4a6fd3] transition-colors"
+                    className="flex items-center gap-2 px-4 py-2 bg-[#5f82f3] text-black text-sm rounded-lg hover:bg-[#4a6fd3] transition-colors"
                 >
                     <PlusIcon className="w-4 h-4" />
                     New Course

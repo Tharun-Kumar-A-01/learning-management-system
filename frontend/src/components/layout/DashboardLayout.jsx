@@ -48,7 +48,7 @@ export default function DashboardLayout({ children }) {
             trainer: [
                 { path: '/courses', label: 'Courses', icon: BookOpenIcon },
                 { path: '/students', label: 'Students', icon: UsersIcon },
-                { path: '/assessments', label: 'Assessments', icon: ClipboardDocumentCheckIcon }
+                // { path: '/assessments', label: 'Assessments', icon: ClipboardDocumentCheckIcon }
             ],
             admin: [
                 { path: '/users', label: 'Users', icon: UsersIcon },
@@ -60,7 +60,7 @@ export default function DashboardLayout({ children }) {
                 { path: '/users', label: 'Users', icon: UsersIcon },
                 { path: '/courses', label: 'Courses', icon: BookOpenIcon },
                 { path: '/reports', label: 'Reports', icon: ChartBarIcon },
-                { path: '/organizations', label: 'Organizations', icon: BuildingOfficeIcon },
+                // { path: '/organizations', label: 'Organizations', icon: BuildingOfficeIcon },
                 { path: '/learning-policies', label: 'Learning Policies', icon: ShieldCheckIcon },
                 { path: '/branding', label: 'Branding', icon: PaintBrushIcon },
                 { path: '/settings', label: 'Settings', icon: Cog6ToothIcon }

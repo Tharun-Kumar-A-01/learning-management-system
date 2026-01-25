@@ -2,13 +2,17 @@ const express = require('express');
 const router = express.Router();
 const User = require('../models/user');
 const { protect } = require('../middleware/auth');
+const passwordResetRoutes = require('./passwordReset');
 
-// @desc    Register user
+// Mount password reset routes
+router.use('/', passwordResetRoutes);
+
+// @desc    Register user (public - learner only)
 // @route   POST /api/auth/register
 // @access  Public
 router.post('/register', async (req, res) => {
     try {
-        const { name, email, password, role } = req.body;
+        const { name, email, password } = req.body;
 
         // Check if user exists
         const userExists = await User.findOne({ email });
@@ -16,15 +20,67 @@ router.post('/register', async (req, res) => {
             return res.status(400).json({ success: false, message: 'User already exists' });
         }
 
-        // Create user
+        // Public registration is only for learners
         const user = await User.create({
             name,
             email,
             password,
-            role
+            role: 'learner'
         });
 
         sendTokenResponse(user, 201, res);
+    } catch (err) {
+        res.status(400).json({ success: false, message: err.message });
+    }
+});
+
+// @desc    Create user with role (admin/super_admin only)
+// @route   POST /api/auth/create-user
+// @access  Private (super_admin can create admin/trainer, admin can create trainer)
+router.post('/create-user', protect, async (req, res) => {
+    try {
+        const { name, email, password, role } = req.body;
+        const creatorRole = req.user.role;
+
+        // Validate role creation permissions
+        if (creatorRole === 'super_admin') {
+            // Super admin can create admin, trainer, and learner
+            if (!['admin', 'trainer', 'learner'].includes(role)) {
+                return res.status(400).json({ success: false, message: 'Invalid role specified' });
+            }
+        } else if (creatorRole === 'admin') {
+            // Admin can only create trainer and learner
+            if (!['trainer', 'learner'].includes(role)) {
+                return res.status(403).json({ success: false, message: 'Admins can only create trainers and learners' });
+            }
+        } else {
+            return res.status(403).json({ success: false, message: 'Not authorized to create users' });
+        }
+
+        // Check if user exists
+        const userExists = await User.findOne({ email });
+        if (userExists) {
+            return res.status(400).json({ success: false, message: 'User already exists' });
+        }
+
+        // Create user with specified role
+        const user = await User.create({
+            name,
+            email,
+            password,
+            role,
+            organizationId: req.user.organizationId
+        });
+
+        res.status(201).json({
+            success: true,
+            data: {
+                id: user._id,
+                name: user.name,
+                email: user.email,
+                role: user.role
+            }
+        });
     } catch (err) {
         res.status(400).json({ success: false, message: err.message });
     }

@@ -11,7 +11,13 @@ import {
     Squares2X2Icon,
     UserIcon,
     TagIcon,
-    ArrowDownTrayIcon
+    ArrowDownTrayIcon,
+    EyeSlashIcon,
+    ArrowUpOnSquareIcon,
+    PencilSquareIcon,
+    EyeIcon,
+    TrashIcon,
+    PlayIcon
 } from '@heroicons/react/24/outline';
 
 // Helper function for progress colors
@@ -66,6 +72,27 @@ export default function CoursesListPage() {
             fetchCourses();
         } catch (error) {
             console.error('Failed to enroll:', error);
+        }
+    };
+
+    const handlePublish = async (courseId) => {
+        try {
+            await apiFetch(`/courses/${courseId}/publish`, { method: 'PUT' });
+            fetchCourses();
+        } catch (error) {
+            console.error('Failed to publish:', error);
+        }
+    };
+
+    const handleDelete = async (courseId) => {
+        if (!window.confirm('Are you sure you want to delete this course? This action cannot be undone.')) {
+            return;
+        }
+        try {
+            await apiFetch(`/courses/${courseId}`, { method: 'DELETE' });
+            fetchCourses();
+        } catch (error) {
+            console.error('Failed to delete:', error);
         }
     };
 
@@ -154,12 +181,6 @@ export default function CoursesListPage() {
         ctx.fillStyle = '#888888';
         ctx.font = '12px Arial';
         ctx.fillText(`Certificate ID: ${course._id}`, canvas.width / 2, 600);
-        ctx.fillText('Verify at: http://localhost:5173/verify', canvas.width / 2, 620);
-
-        // LMS branding
-        ctx.fillStyle = '#1a365d';
-        ctx.font = 'bold 14px Arial';
-        ctx.fillText('Learning Management System', canvas.width / 2, 660);
 
         const link = document.createElement('a');
         link.download = `certificate-${course.title.replace(/[^a-z0-9]/gi, '-').toLowerCase()}.png`;
@@ -190,7 +211,7 @@ export default function CoursesListPage() {
                 {isTrainerOrAdmin && (
                     <Link
                         to="/courses/create"
-                        className="flex items-center gap-2 px-4 py-2 bg-[#5f82f3] text-white text-sm rounded-lg hover:bg-[#4a6fd3] transition-colors"
+                        className="flex items-center gap-2 px-4 py-2 bg-[#5f82f3] text-black text-sm rounded-lg hover:bg-[#4a6fd3] transition-colors"
                     >
                         <PlusIcon className="w-4 h-4" />
                         Create Course
@@ -217,7 +238,7 @@ export default function CoursesListPage() {
                                 key={f}
                                 onClick={() => setFilter(f)}
                                 className={`px-3 py-2 rounded-lg text-xs font-medium transition-colors ${filter === f
-                                    ? 'bg-[#5f82f3] text-white'
+                                    ? 'bg-[#5f82f3] text-black'
                                     : 'bg-[#1a1a1a] border border-[#2a2a2a] text-[#888] hover:text-[#e4e4ea]'
                                     }`}
                             >
@@ -255,15 +276,22 @@ export default function CoursesListPage() {
 
                             {/* Content */}
                             <div className="p-4 flex flex-col flex-1">
-                                {/* Title & Difficulty */}
+                                {/* Title & Tags */}
                                 <div className="flex items-start justify-between gap-2 mb-2">
                                     <h3 className="text-sm font-medium text-[#e4e4ea] line-clamp-1 flex-1">{course.title}</h3>
-                                    <span className={`px-2 py-0.5 text-xs rounded flex-shrink-0 ${course.difficulty === 'beginner' ? 'bg-[#5dff4f]/10 text-[#5dff4f]' :
-                                        course.difficulty === 'intermediate' ? 'bg-[#ffb84d]/10 text-[#ffb84d]' :
-                                            'bg-[#ff4848]/10 text-[#ff4848]'
-                                        }`}>
-                                        {course.difficulty}
-                                    </span>
+                                    <div className="flex items-center gap-1 flex-shrink-0">
+                                        {isTrainerOrAdmin && course.status === 'draft' && (
+                                            <span className="flex items-center gap-1 px-2 py-0.5 text-xs rounded bg-[#ffb84d]/10 text-[#ffb84d]">
+                                                Draft
+                                            </span>
+                                        )}
+                                        <span className={`px-2 py-0.5 text-xs rounded ${course.difficulty === 'beginner' ? 'bg-[#5dff4f]/10 text-[#5dff4f]' :
+                                            course.difficulty === 'intermediate' ? 'bg-[#ffb84d]/10 text-[#ffb84d]' :
+                                                'bg-[#ff4848]/10 text-[#ff4848]'
+                                            }`}>
+                                            {course.difficulty}
+                                        </span>
+                                    </div>
                                 </div>
 
                                 {/* Description */}
@@ -318,66 +346,80 @@ export default function CoursesListPage() {
                                 <div className="flex-1"></div>
 
                                 {/* Actions */}
-                                <div className="flex gap-2 mt-auto">
+                                <div className="flex flex-col gap-2 mt-auto">
                                     {course.isEnrolled && course.progress === 100 ? (
-                                        <>
+                                        <div className="flex gap-2">
                                             <button
                                                 onClick={() => downloadCertificate(course)}
-                                                className="flex-1 flex items-center justify-center gap-1 px-3 py-2 bg-[#5dff4f] text-[#0e0e0e] text-xs font-medium rounded hover:bg-[#4de63e] transition-colors"
+                                                className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2.5 bg-[#5dff4f] text-[#0e0e0e] text-xs font-semibold rounded-lg hover:bg-[#4de63e] transition-colors"
                                             >
-                                                <ArrowDownTrayIcon className="w-3 h-3" />
+                                                <ArrowDownTrayIcon className="w-4 h-4" />
                                                 Certificate
                                             </button>
                                             <Link
                                                 to={`/courses/${course._id}`}
-                                                className="px-3 py-2 bg-[#2a2a2a] text-[#888] text-xs rounded hover:bg-[#333] transition-colors"
+                                                className="flex items-center justify-center gap-1.5 px-3 py-2.5 bg-[#2a2a2a] text-[#e4e4ea] text-xs rounded-lg hover:bg-[#333] transition-colors"
                                             >
                                                 View
                                             </Link>
-                                        </>
+                                        </div>
                                     ) : course.isEnrolled ? (
                                         <Link
                                             to={`/courses/${course._id}`}
-                                            className="flex-1 px-3 py-2 bg-[#5f82f3] text-white text-xs text-center rounded hover:bg-[#4a6fd3] transition-colors"
+                                            className="flex items-center justify-center gap-1.5 px-3 py-2.5 bg-[#5f82f3] text-black text-xs font-medium rounded-lg hover:bg-[#4a6fd3] transition-colors"
                                         >
-                                            Continue
+                                            <PlayIcon className="w-4 h-4" />
+                                            Continue Learning
                                         </Link>
                                     ) : isLearner ? (
-                                        <>
+                                        <div className="flex gap-2">
                                             <button
                                                 onClick={() => handleEnroll(course._id)}
-                                                className="flex-1 px-3 py-2 bg-[#5dff4f] text-[#0e0e0e] text-xs font-medium text-center rounded hover:bg-[#4de63e] transition-colors"
+                                                className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2.5 bg-[#5dff4f] text-[#0e0e0e] text-xs font-semibold rounded-lg hover:bg-[#4de63e] transition-colors"
                                             >
-                                                Enroll
+                                                <PlusIcon className="w-4 h-4" />
+                                                Enroll Now
                                             </button>
                                             <Link
                                                 to={`/courses/${course._id}`}
-                                                className="px-3 py-2 bg-[#2a2a2a] text-[#888] text-xs rounded hover:bg-[#333] transition-colors"
+                                                className="flex items-center justify-center gap-1.5 px-3 py-2.5 bg-[#2a2a2a] text-[#e4e4ea] text-xs rounded-lg hover:bg-[#333] transition-colors"
                                             >
                                                 View
                                             </Link>
-                                        </>
+                                        </div>
                                     ) : isTrainerOrAdmin ? (
-                                        <>
-                                            <Link
-                                                to={`/courses/${course._id}/edit`}
-                                                className="flex-1 px-3 py-2 bg-[#5f82f3] text-white text-xs text-center rounded hover:bg-[#4a6fd3] transition-colors"
-                                            >
-                                                Edit
-                                            </Link>
-                                            <Link
-                                                to={`/courses/${course._id}`}
-                                                className="px-3 py-2 bg-[#2a2a2a] text-[#888] text-xs rounded hover:bg-[#333] transition-colors"
-                                            >
-                                                View
-                                            </Link>
-                                        </>
+                                        <div className="flex flex-col gap-2">
+                                            <div className="flex gap-2">
+                                                {course.status === 'draft' && (
+                                                    <button
+                                                        onClick={() => handlePublish(course._id)}
+                                                        className="w-full flex items-center justify-center gap-1.5 px-3 py-2.5 bg-[#5dff4f] text-[#0e0e0e] text-xs font-semibold rounded-lg hover:bg-[#4de63e] transition-colors"
+                                                    >
+                                                        <ArrowUpOnSquareIcon className="w-4 h-4" />
+                                                        Publish Course
+                                                    </button>
+                                                )}
+                                                <Link
+                                                    to={`/courses/${course._id}/edit`}
+                                                    className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2.5 bg-[#5f82f3] text-black text-xs font-medium rounded-lg hover:bg-[#4a6fd3] transition-colors"
+                                                >
+                                                    <PencilSquareIcon className="w-4 h-4" />
+                                                    Edit
+                                                </Link>
+                                                <Link
+                                                    to={`/courses/${course._id}`}
+                                                    className="flex items-center justify-center gap-1.5 px-3 py-2.5 bg-[#2a2a2a] text-[#e4e4ea] text-xs rounded-lg hover:bg-[#333] transition-colors"
+                                                >
+                                                    View
+                                                </Link>
+                                            </div>
+                                        </div>
                                     ) : (
                                         <Link
                                             to={`/courses/${course._id}`}
-                                            className="flex-1 px-3 py-2 bg-[#5f82f3] text-white text-xs text-center rounded hover:bg-[#4a6fd3] transition-colors"
+                                            className="flex items-center justify-center gap-1.5 px-3 py-2.5 bg-[#5f82f3] text-white text-xs font-medium rounded-lg hover:bg-[#4a6fd3] transition-colors"
                                         >
-                                            View
+                                            View Course
                                         </Link>
                                     )}
                                 </div>

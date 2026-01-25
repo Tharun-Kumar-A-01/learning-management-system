@@ -77,13 +77,13 @@ export default function VerifyCertificatePage() {
                                 value={certificateId}
                                 onChange={(e) => setCertificateId(e.target.value)}
                                 placeholder="Enter Certificate ID..."
-                                className="w-full pl-12 pr-4 py-3 bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg text-[#e4e4ea] placeholder-[#666] focus:outline-none focus:border-[#5f82f3]"
+                                className="w-full pl-12 pr-4 py-2 bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg text-[#e4e4ea] placeholder-[#666] focus:outline-none focus:border-[#5f82f3]"
                             />
                         </div>
                         <button
                             type="submit"
                             disabled={loading}
-                            className="px-6 py-3 bg-[#5f82f3] text-white rounded-lg hover:bg-[#4a6fd3] transition-colors disabled:opacity-50"
+                            className="px-6 py-2 bg-[#5f82f3] text-black rounded-lg hover:bg-[#4a6fd3] transition-colors disabled:opacity-50"
                         >
                             {loading ? 'Verifying...' : 'Verify'}
                         </button>

@@ -30,6 +30,8 @@ import CertificatesPage from './pages/certificates/CertificatesPage';
 import LearningPoliciesPage from './pages/settings/LearningPoliciesPage';
 import BrandingPage from './pages/settings/BrandingPage';
 import VerifyCertificatePage from './pages/VerifyCertificatePage';
+import ForgotPasswordPage from './pages/auth/ForgotPasswordPage';
+import ResetPasswordPage from './pages/auth/ResetPasswordPage';
 
 // Role-based dashboard router
 const RoleBasedDashboard = () => {
@@ -112,18 +114,17 @@ const LandingPage = () => {
           <div className="text-center">
             <h1 className="text-5xl font-extrabold tracking-tight sm:text-6xl">
               <span className="block text-white">Transform Your</span>
-              <span className="block text-transparent bg-clip-text bg-gradient-to-r from-indigo-500 to-purple-600">
+              <span className="block text-blue-400">
                 Learning Experience
               </span>
             </h1>
             <p className="mt-6 max-w-2xl mx-auto text-xl text-zinc-400">
-              A comprehensive Learning Management System for organizations to train employees,
-              manage courses, and track performance.
+              A comprehensive Learning Management System
             </p>
             <div className="mt-10 flex justify-center gap-4">
               <a
                 href="/register"
-                className="px-8 py-3 bg-indigo-500 hover:bg-indigo-600 text-white rounded-lg text-lg font-medium transition-colors"
+                className="px-8 py-3 bg-blue-500 hover:bg-blue-600 text-black rounded-lg text-lg font-medium transition-colors"
               >
                 Get Started
               </a>
@@ -205,6 +206,22 @@ export default function App() {
               element={
                 <PublicRoute>
                   <Register />
+                </PublicRoute>
+              }
+            />
+            <Route
+              path="/forgot-password"
+              element={
+                <PublicRoute>
+                  <ForgotPasswordPage />
+                </PublicRoute>
+              }
+            />
+            <Route
+              path="/reset-password/:token"
+              element={
+                <PublicRoute>
+                  <ResetPasswordPage />
                 </PublicRoute>
               }
             />

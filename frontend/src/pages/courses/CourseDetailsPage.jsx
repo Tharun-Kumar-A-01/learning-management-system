@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import { apiFetch } from '../../utils/api';
 import DashboardLayout from '../../components/layout/DashboardLayout';
 import { useAuth } from '../../context/AuthContext';
@@ -14,7 +14,12 @@ import {
     ChevronLeftIcon,
     ChevronRightIcon,
     QuestionMarkCircleIcon,
-    ExclamationTriangleIcon
+    ExclamationTriangleIcon,
+    EyeSlashIcon,
+    ArrowUpOnSquareIcon,
+    PencilSquareIcon,
+    TrashIcon,
+    PlusIcon
 } from '@heroicons/react/24/outline';
 import { CheckCircleIcon as CheckCircleSolid } from '@heroicons/react/24/solid';
 
@@ -52,6 +57,7 @@ const getVideoEmbedUrl = (url) => {
 
 export default function CourseDetailsPage() {
     const { id } = useParams();
+    const navigate = useNavigate();
     const { user } = useAuth();
     const [course, setCourse] = useState(null);
     const [loading, setLoading] = useState(true);
@@ -59,6 +65,8 @@ export default function CourseDetailsPage() {
     const [activeLesson, setActiveLesson] = useState(0);
     const [showUnenrollDialog, setShowUnenrollDialog] = useState(false);
     const [unenrolling, setUnenrolling] = useState(false);
+    const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+    const [deleting, setDeleting] = useState(false);
 
     // Quiz state
     const [quizAnswers, setQuizAnswers] = useState({});
@@ -66,7 +74,9 @@ export default function CourseDetailsPage() {
     const [quizResults, setQuizResults] = useState(null);
 
     const isOwner = course?.createdBy?._id === user?.id || course?.createdBy === user?.id;
-    const canEdit = isOwner || ['admin', 'super_admin'].includes(user?.role);
+    const isTrainer = user?.role === 'trainer';
+    const canEdit = (isTrainer && isOwner) || ['admin', 'super_admin'].includes(user?.role);
+    const canPublish = ((isTrainer && isOwner) || ['admin', 'super_admin'].includes(user?.role)) && course?.status === 'draft';
     const isLearner = user?.role === 'learner';
 
     useEffect(() => {
@@ -112,6 +122,28 @@ export default function CourseDetailsPage() {
             console.error('Failed to unenroll:', error);
         } finally {
             setUnenrolling(false);
+        }
+    };
+
+    const handlePublish = async () => {
+        try {
+            await apiFetch(`/courses/${id}/publish`, { method: 'PUT' });
+            fetchCourse();
+        } catch (error) {
+            console.error('Failed to publish:', error);
+        }
+    };
+
+    const handleDelete = async () => {
+        setDeleting(true);
+        try {
+            await apiFetch(`/courses/${id}`, { method: 'DELETE' });
+            setShowDeleteDialog(false);
+            navigate('/courses');
+        } catch (error) {
+            console.error('Failed to delete:', error);
+        } finally {
+            setDeleting(false);
         }
     };
 
@@ -216,7 +248,15 @@ export default function CourseDetailsPage() {
                 </Link>
                 <div className="flex items-start justify-between">
                     <div>
-                        <h1 className="text-xl font-semibold text-[#e4e4ea]">{course.title}</h1>
+                        <div className="flex items-center gap-2 mb-1">
+                            <h1 className="text-xl font-semibold text-[#e4e4ea]">{course.title}</h1>
+                            {canPublish && (
+                                <span className="flex items-center gap-1 px-2 py-0.5 text-xs rounded bg-[#ffb84d]/10 text-[#ffb84d]">
+                                    <EyeSlashIcon className="w-3 h-3" />
+                                    Draft
+                                </span>
+                            )}
+                        </div>
                         <p className="text-sm text-[#666] mt-1">{course.description}</p>
                         <div className="flex items-center gap-4 mt-3 text-xs text-[#666]">
                             <span className="flex items-center gap-1">
@@ -235,28 +275,49 @@ export default function CourseDetailsPage() {
                             </span>
                         </div>
                     </div>
-                    <div className="flex gap-2">
+                    <div className="flex flex-wrap gap-2">
+                        {canPublish && (
+                            <button
+                                onClick={handlePublish}
+                                className="flex items-center gap-1.5 px-4 py-2 bg-[#5dff4f] text-[#0e0e0e] text-sm font-semibold rounded-lg hover:bg-[#4de63e] transition-colors"
+                            >
+                                <ArrowUpOnSquareIcon className="w-4 h-4" />
+                                Publish
+                            </button>
+                        )}
                         {canEdit && (
                             <Link
                                 to={`/courses/${id}/edit`}
-                                className="px-4 py-2 bg-[#1a1a1a] border border-[#2a2a2a] text-[#e4e4ea] text-sm rounded-lg hover:border-[#5f82f3]/30 transition-colors"
+                                className="flex items-center gap-1.5 px-4 py-2 bg-[#5f82f3] text-black text-sm font-medium rounded-lg hover:bg-[#4a6fd3] transition-colors"
                             >
+                                <PencilSquareIcon className="w-4 h-4" />
                                 Edit
                             </Link>
+                        )}
+                        {canEdit && (
+                            <button
+                                onClick={() => setShowDeleteDialog(true)}
+                                className="flex items-center gap-1.5 px-4 py-2 bg-[#ff4848]/10 text-[#ff4848] text-sm rounded-lg hover:bg-[#ff4848]/20 transition-colors"
+                            >
+                                <TrashIcon className="w-4 h-4" />
+                                Delete
+                            </button>
                         )}
                         {isLearner && !course.isEnrolled && (
                             <button
                                 onClick={handleEnroll}
-                                className="px-4 py-2 bg-[#5dff4f] text-[#0e0e0e] text-sm font-medium rounded-lg hover:bg-[#4de63e] transition-colors"
+                                className="flex items-center gap-1.5 px-4 py-2 bg-[#5dff4f] text-[#0e0e0e] text-sm font-semibold rounded-lg hover:bg-[#4de63e] transition-colors"
                             >
+                                <PlusIcon className="w-4 h-4" />
                                 Enroll Now
                             </button>
                         )}
                         {isLearner && course.isEnrolled && progress < 100 && (
                             <button
                                 onClick={() => setShowUnenrollDialog(true)}
-                                className="px-4 py-2 bg-[#ff4848]/10 text-[#ff4848] text-sm rounded-lg hover:bg-[#ff4848]/20 transition-colors"
+                                className="flex items-center gap-1.5 px-4 py-2 bg-[#ff4848]/10 text-[#ff4848] text-sm rounded-lg hover:bg-[#ff4848]/20 transition-colors"
                             >
+                                <TrashIcon className="w-4 h-4" />
                                 Unenroll
                             </button>
                         )}
@@ -476,7 +537,7 @@ export default function CourseDetailsPage() {
                                                     <button
                                                         onClick={handleQuizSubmit}
                                                         disabled={Object.keys(quizAnswers).length !== currentLesson.questions?.length}
-                                                        className="w-full py-3 bg-[#5f82f3] text-white rounded-lg text-sm font-medium hover:bg-[#4a6fd3] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                                        className="w-full py-3 bg-[#5f82f3] text-black rounded-lg text-sm font-medium hover:bg-[#4a6fd3] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                                                     >
                                                         Submit Quiz
                                                     </button>
@@ -624,6 +685,35 @@ export default function CourseDetailsPage() {
                             className="flex-1 px-4 py-2 bg-[#ff4848] hover:bg-[#e63e3e] text-white rounded-lg font-medium transition-colors disabled:opacity-50"
                         >
                             {unenrolling ? 'Unenrolling...' : 'Unenroll'}
+                        </button>
+                    </div>
+                </DialogContent>
+            </Dialog>
+
+            {/* Delete Confirmation Dialog */}
+            <Dialog open={showDeleteDialog} onClose={() => setShowDeleteDialog(false)}>
+                <DialogContent className="bg-zinc-900 border border-white/10">
+                    <div className="flex items-center gap-3 mb-4">
+                        <TrashIcon className="w-6 h-6 text-[#ff4848]" />
+                        <DialogTitle className="text-lg font-semibold text-white">Delete Course</DialogTitle>
+                    </div>
+                    <p className="text-zinc-400 mb-6">
+                        Are you sure you want to delete <strong className="text-white">{course?.title}</strong>?
+                        This action cannot be undone and all enrolled learners will lose access.
+                    </p>
+                    <div className="flex gap-3">
+                        <button
+                            onClick={() => setShowDeleteDialog(false)}
+                            className="flex-1 px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-white rounded-lg font-medium transition-colors"
+                        >
+                            Cancel
+                        </button>
+                        <button
+                            onClick={handleDelete}
+                            disabled={deleting}
+                            className="flex-1 px-4 py-2 bg-[#ff4848] hover:bg-[#e63e3e] text-white rounded-lg font-medium transition-colors disabled:opacity-50"
+                        >
+                            {deleting ? 'Deleting...' : 'Delete Course'}
                         </button>
                     </div>
                 </DialogContent>

@@ -41,6 +41,7 @@ app.use('/api/dashboard', require('./routes/dashboard'));
 app.use('/api/courses', require('./routes/course'));
 app.use('/api/users', require('./routes/users'));
 app.use('/api/certificates', require('./routes/certificates'));
+app.use('/api/learning-policies', require('./routes/learningPolicies'));
 
 app.get('/', (req, res) => {
     res.send('LMS API is running...');

@@ -3,76 +3,75 @@ import DashboardLayout from '../../components/layout/DashboardLayout';
 import { apiFetch } from '../../utils/api';
 import {
     ShieldCheckIcon,
-    PlusIcon,
-    PencilSquareIcon,
-    TrashIcon,
-    CheckCircleIcon
+    CheckCircleIcon,
+    ExclamationTriangleIcon
 } from '@heroicons/react/24/outline';
 
 export default function LearningPoliciesPage() {
-    const [policies, setPolicies] = useState([
-        {
-            id: 1,
-            name: 'Course Completion Deadline',
-            description: 'Days allowed to complete a course after enrollment',
-            value: '30',
-            type: 'number',
-            enabled: true
-        },
-        {
-            id: 2,
-            name: 'Passing Score',
-            description: 'Minimum score required to pass assessments',
-            value: '70',
-            type: 'number',
-            enabled: true
-        },
-        {
-            id: 3,
-            name: 'Certificate Auto-Generation',
-            description: 'Automatically generate certificates on course completion',
-            value: 'true',
-            type: 'boolean',
-            enabled: true
-        },
-        {
-            id: 4,
-            name: 'Allow Course Retakes',
-            description: 'Allow learners to retake completed courses',
-            value: 'true',
-            type: 'boolean',
-            enabled: true
-        },
-        {
-            id: 5,
-            name: 'Max Quiz Attempts',
-            description: 'Maximum attempts allowed for quizzes',
-            value: '3',
-            type: 'number',
-            enabled: true
-        }
-    ]);
+    const [policies, setPolicies] = useState([]);
+    const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [message, setMessage] = useState('');
+    const [error, setError] = useState('');
+
+    useEffect(() => {
+        fetchPolicies();
+    }, []);
+
+    const fetchPolicies = async () => {
+        try {
+            const res = await apiFetch('/learning-policies');
+            if (res.success) {
+                setPolicies(res.data);
+            }
+        } catch (err) {
+            console.error('Failed to fetch policies:', err);
+            setError('Failed to load policies');
+        } finally {
+            setLoading(false);
+        }
+    };
 
     const updatePolicy = (id, field, value) => {
         setPolicies(policies.map(p =>
-            p.id === id ? { ...p, [field]: value } : p
+            p._id === id ? { ...p, [field]: value } : p
         ));
     };
 
     const handleSave = async () => {
         setSaving(true);
         setMessage('');
+        setError('');
 
-        // Simulate save
-        await new Promise(resolve => setTimeout(resolve, 500));
+        try {
+            const res = await apiFetch('/learning-policies', {
+                method: 'PUT',
+                body: { policies }
+            });
 
-        setMessage('Policies saved successfully');
-        setSaving(false);
-
-        setTimeout(() => setMessage(''), 3000);
+            if (res.success) {
+                setPolicies(res.data);
+                setMessage('Policies saved successfully');
+                setTimeout(() => setMessage(''), 3000);
+            }
+        } catch (err) {
+            console.error('Failed to save policies:', err);
+            setError('Failed to save policies');
+            setTimeout(() => setError(''), 3000);
+        } finally {
+            setSaving(false);
+        }
     };
+
+    if (loading) {
+        return (
+            <DashboardLayout>
+                <div className="flex items-center justify-center h-64">
+                    <div className="animate-spin rounded-full h-8 w-8 border-2 border-[#5f82f3] border-t-transparent"></div>
+                </div>
+            </DashboardLayout>
+        );
+    }
 
     return (
         <DashboardLayout>
@@ -99,11 +98,19 @@ export default function LearningPoliciesPage() {
                 </div>
             )}
 
+            {/* Error Message */}
+            {error && (
+                <div className="mb-6 p-3 bg-[#ff4848]/10 border border-[#ff4848]/30 rounded-lg flex items-center gap-2">
+                    <ExclamationTriangleIcon className="w-5 h-5 text-[#ff4848]" />
+                    <span className="text-sm text-[#ff4848]">{error}</span>
+                </div>
+            )}
+
             {/* Policies List */}
             <div className="space-y-4">
                 {policies.map(policy => (
                     <div
-                        key={policy.id}
+                        key={policy._id}
                         className="bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg p-5"
                     >
                         <div className="flex items-start justify-between">
@@ -116,7 +123,7 @@ export default function LearningPoliciesPage() {
 
                                 {policy.type === 'boolean' ? (
                                     <button
-                                        onClick={() => updatePolicy(policy.id, 'value', policy.value === 'true' ? 'false' : 'true')}
+                                        onClick={() => updatePolicy(policy._id, 'value', policy.value === 'true' ? 'false' : 'true')}
                                         className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${policy.value === 'true' ? 'bg-[#5f82f3]' : 'bg-[#2a2a2a]'
                                             }`}
                                     >
@@ -129,7 +136,7 @@ export default function LearningPoliciesPage() {
                                     <input
                                         type="number"
                                         value={policy.value}
-                                        onChange={(e) => updatePolicy(policy.id, 'value', e.target.value)}
+                                        onChange={(e) => updatePolicy(policy._id, 'value', e.target.value)}
                                         className="w-24 px-3 py-1.5 bg-[#0e0e0e] border border-[#2a2a2a] rounded text-sm text-[#e4e4ea] focus:outline-none focus:border-[#5f82f3]"
                                     />
                                 )}
@@ -138,7 +145,7 @@ export default function LearningPoliciesPage() {
                                 <input
                                     type="checkbox"
                                     checked={policy.enabled}
-                                    onChange={(e) => updatePolicy(policy.id, 'enabled', e.target.checked)}
+                                    onChange={(e) => updatePolicy(policy._id, 'enabled', e.target.checked)}
                                     className="sr-only"
                                 />
                                 <span className={`text-xs ${policy.enabled ? 'text-[#5dff4f]' : 'text-[#666]'}`}>

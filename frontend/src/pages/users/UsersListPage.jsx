@@ -88,7 +88,7 @@ export default function UsersListPage() {
                 </div>
                 <button
                     onClick={() => setShowAddModal(true)}
-                    className="inline-flex items-center px-4 py-2 bg-indigo-500 hover:bg-indigo-600 text-white rounded-lg text-sm font-medium transition-colors"
+                    className="inline-flex items-center px-4 py-2 bg-indigo-500 hover:bg-indigo-600 text-black rounded-lg text-sm font-medium transition-colors"
                 >
                     <PlusIcon className="w-4 h-4 mr-2" />
                     Add User
@@ -112,7 +112,7 @@ export default function UsersListPage() {
                             key={role}
                             onClick={() => setRoleFilter(role)}
                             className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${roleFilter === role
-                                ? 'bg-indigo-500 text-white'
+                                ? 'bg-indigo-500 text-black'
                                 : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700'
                                 }`}
                         >

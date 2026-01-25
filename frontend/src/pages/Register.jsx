@@ -3,14 +3,13 @@ import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { Input } from '../components/ui/TextInput';
 import { Button } from '../components/ui/Button';
-import { Select } from '../components/ui/SelectInput';
 
 export default function Register() {
     const [name, setName] = useState('');
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
-    const [role, setRole] = useState('learner');
     const [error, setError] = useState('');
+    const [loading, setLoading] = useState(false);
 
     const { register } = useAuth();
     const navigate = useNavigate();
@@ -18,11 +17,14 @@ export default function Register() {
     const handleSubmit = async (e) => {
         e.preventDefault();
         setError('');
+        setLoading(true);
         try {
-            await register(name, email, password, role);
+            await register(name, email, password);
             navigate('/');
         } catch (err) {
             setError(err.message);
+        } finally {
+            setLoading(false);
         }
     };
 
@@ -33,6 +35,9 @@ export default function Register() {
                     <h2 className="mt-6 text-center text-3xl font-extrabold text-white">
                         Create an account
                     </h2>
+                    <p className="mt-2 text-center text-sm text-zinc-400">
+                        Register as a learner to start your learning journey
+                    </p>
                 </div>
                 <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
                     {error && (
@@ -65,16 +70,11 @@ export default function Register() {
                             onChange={(e) => setPassword(e.target.value)}
                             placeholder="Create a password"
                         />
-                        <Select label="I am a" value={role} onChange={(e) => setRole(e.target.value)}>
-                            <option value="learner">Learner</option>
-                            <option value="trainer">Trainer</option>
-                            <option value="admin">Admin</option>
-                        </Select>
                     </div>
 
                     <div>
-                        <Button type="submit" className="w-full justify-center">
-                            Register
+                        <Button type="submit" disabled={loading} className="w-full justify-center">
+                            {loading ? 'Creating account...' : 'Register'}
                         </Button>
                     </div>
 

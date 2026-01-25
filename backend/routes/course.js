@@ -15,7 +15,11 @@ router.get('/', protect, async (req, res) => {
         if (status) {
             query.status = status;
         }
-        // Note: Removed auto-filter for learners to show all courses during demo/testing
+
+        // For learners, only show published courses
+        if (req.user.role === 'learner') {
+            query.status = 'published';
+        }
 
         // Filter by category
         if (category) {
@@ -174,6 +178,35 @@ router.put('/:id', protect, authorize('trainer', 'admin', 'super_admin'), async 
         });
 
         res.status(200).json({ success: true, data: course });
+    } catch (err) {
+        res.status(400).json({ success: false, message: err.message });
+    }
+});
+
+// @desc    Publish course
+// @route   PUT /api/courses/:id/publish
+// @access  Private (Owner, Admin, Super Admin)
+router.put('/:id/publish', protect, authorize('trainer', 'admin', 'super_admin'), async (req, res) => {
+    try {
+        let course = await Course.findById(req.params.id);
+
+        if (!course) {
+            return res.status(404).json({ success: false, message: 'Course not found' });
+        }
+
+        // Check ownership for trainers
+        if (req.user.role === 'trainer' && course.createdBy.toString() !== req.user.id) {
+            return res.status(403).json({ success: false, message: 'Not authorized to publish this course' });
+        }
+
+        // Update status to published
+        course = await Course.findByIdAndUpdate(
+            req.params.id,
+            { status: 'published' },
+            { new: true, runValidators: true }
+        ).populate('createdBy', 'name email');
+
+        res.status(200).json({ success: true, data: course, message: 'Course published successfully' });
     } catch (err) {
         res.status(400).json({ success: false, message: err.message });
     }
