@@ -92,7 +92,7 @@ Admins,${stats?.usersByRole?.admins || 0}`;
                     </select>
                     <button
                         onClick={exportCSV}
-                        className="flex items-center gap-2 px-4 py-2 bg-[#5f82f3] text-white text-sm rounded-lg hover:bg-[#4a6fd3] transition-colors"
+                        className="flex items-center gap-2 px-4 py-2 bg-primary text-white text-sm rounded-lg hover:bg-[#4a6fd3] transition-colors"
                     >
                         <ArrowDownTrayIcon className="w-4 h-4" />
                         Export CSV
@@ -105,7 +105,7 @@ Admins,${stats?.usersByRole?.admins || 0}`;
                 <div className="bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg p-5">
                     <div className="flex items-center justify-between mb-3">
                         <span className="text-sm text-[#888]">Total Users</span>
-                        <div className="p-2 bg-[#5f82f3]/10 rounded">
+                        <div className="p-2 bg-primary/10 rounded">
                             <UsersIcon className="w-4 h-4 text-[#5f82f3]" />
                         </div>
                     </div>
@@ -114,7 +114,7 @@ Admins,${stats?.usersByRole?.admins || 0}`;
                 <div className="bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg p-5">
                     <div className="flex items-center justify-between mb-3">
                         <span className="text-sm text-[#888]">Total Courses</span>
-                        <div className="p-2 bg-[#5f82f3]/10 rounded">
+                        <div className="p-2 bg-primary/10 rounded">
                             <BookOpenIcon className="w-4 h-4 text-[#5f82f3]" />
                         </div>
                     </div>
@@ -123,7 +123,7 @@ Admins,${stats?.usersByRole?.admins || 0}`;
                 <div className="bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg p-5">
                     <div className="flex items-center justify-between mb-3">
                         <span className="text-sm text-[#888]">Enrollments</span>
-                        <div className="p-2 bg-[#5f82f3]/10 rounded">
+                        <div className="p-2 bg-primary/10 rounded">
                             <ClipboardDocumentCheckIcon className="w-4 h-4 text-[#5f82f3]" />
                         </div>
                     </div>
@@ -132,7 +132,7 @@ Admins,${stats?.usersByRole?.admins || 0}`;
                 <div className="bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg p-5">
                     <div className="flex items-center justify-between mb-3">
                         <span className="text-sm text-[#888]">Completion Rate</span>
-                        <div className="p-2 bg-[#5f82f3]/10 rounded">
+                        <div className="p-2 bg-primary/10 rounded">
                             <ChartBarIcon className="w-4 h-4 text-[#5f82f3]" />
                         </div>
                     </div>
@@ -150,7 +150,7 @@ Admins,${stats?.usersByRole?.admins || 0}`;
                             <span className="text-[#e4e4ea]">{stats?.usersByRole?.learners || 0}</span>
                         </div>
                         <div className="h-2 bg-[#0e0e0e] rounded-full overflow-hidden">
-                            <div className="h-full bg-[#5f82f3] rounded-full" style={{ width: `${learnerPercent}%` }}></div>
+                            <div className="h-full bg-primary rounded-full" style={{ width: `${learnerPercent}%` }}></div>
                         </div>
                     </div>
                     <div>
@@ -159,7 +159,7 @@ Admins,${stats?.usersByRole?.admins || 0}`;
                             <span className="text-[#e4e4ea]">{stats?.usersByRole?.trainers || 0}</span>
                         </div>
                         <div className="h-2 bg-[#0e0e0e] rounded-full overflow-hidden">
-                            <div className="h-full bg-[#5f82f3]/70 rounded-full" style={{ width: `${trainerPercent}%` }}></div>
+                            <div className="h-full bg-primary/70 rounded-full" style={{ width: `${trainerPercent}%` }}></div>
                         </div>
                     </div>
                     <div>
@@ -168,7 +168,7 @@ Admins,${stats?.usersByRole?.admins || 0}`;
                             <span className="text-[#e4e4ea]">{stats?.usersByRole?.admins || 0}</span>
                         </div>
                         <div className="h-2 bg-[#0e0e0e] rounded-full overflow-hidden">
-                            <div className="h-full bg-[#5f82f3]/50 rounded-full" style={{ width: `${adminPercent}%` }}></div>
+                            <div className="h-full bg-primary/50 rounded-full" style={{ width: `${adminPercent}%` }}></div>
                         </div>
                     </div>
                 </div>
@@ -198,8 +198,8 @@ Admins,${stats?.usersByRole?.admins || 0}`;
                                     <td className="py-3 text-sm text-[#888]">{course.enrolledCount || course.enrollments?.length || 0}</td>
                                     <td className="py-3">
                                         <span className={`text-xs px-2 py-0.5 rounded ${course.status === 'published'
-                                                ? 'bg-[#5dff4f]/10 text-[#5dff4f]'
-                                                : 'bg-[#666]/10 text-[#666]'
+                                            ? 'bg-[#5dff4f]/10 text-[#5dff4f]'
+                                            : 'bg-[#666]/10 text-[#666]'
                                             }`}>
                                             {course.status || 'draft'}
                                         </span>

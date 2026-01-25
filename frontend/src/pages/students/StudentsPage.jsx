@@ -101,7 +101,7 @@ export default function StudentsPage() {
             <div className="grid grid-cols-3 gap-4 mb-6">
                 <div className="bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg p-4">
                     <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 bg-[#5f82f3]/10 rounded-lg flex items-center justify-center">
+                        <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center">
                             <UsersIcon className="w-5 h-5 text-[#5f82f3]" />
                         </div>
                         <div>
@@ -112,7 +112,7 @@ export default function StudentsPage() {
                 </div>
                 <div className="bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg p-4">
                     <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 bg-[#5f82f3]/10 rounded-lg flex items-center justify-center">
+                        <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center">
                             <BookOpenIcon className="w-5 h-5 text-[#5f82f3]" />
                         </div>
                         <div>
@@ -183,7 +183,7 @@ export default function StudentsPage() {
                                 <tr key={`${student.id}-${student.courseId}-${index}`} className="border-b border-[#2a2a2a]/50 hover:bg-[#0e0e0e]">
                                     <td className="py-3 px-4">
                                         <div className="flex items-center gap-3">
-                                            <div className="w-8 h-8 rounded-full bg-[#5f82f3]/20 flex items-center justify-center text-[#5f82f3] text-sm font-medium">
+                                            <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center text-[#5f82f3] text-sm font-medium">
                                                 {student.name.charAt(0).toUpperCase()}
                                             </div>
                                             <div>
@@ -216,10 +216,10 @@ export default function StudentsPage() {
                                     </td>
                                     <td className="py-3 px-4">
                                         <span className={`px-2 py-1 rounded text-xs ${student.completed
-                                                ? 'bg-[#5dff4f]/10 text-[#5dff4f]'
-                                                : student.progress > 0
-                                                    ? 'bg-[#ffb84d]/10 text-[#ffb84d]'
-                                                    : 'bg-[#666]/10 text-[#666]'
+                                            ? 'bg-[#5dff4f]/10 text-[#5dff4f]'
+                                            : student.progress > 0
+                                                ? 'bg-[#ffb84d]/10 text-[#ffb84d]'
+                                                : 'bg-[#666]/10 text-[#666]'
                                             }`}>
                                             {student.completed ? 'Completed' : student.progress > 0 ? 'In Progress' : 'Not Started'}
                                         </span>

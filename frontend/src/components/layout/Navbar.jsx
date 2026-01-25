@@ -1,11 +1,13 @@
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import { useBranding } from '../../hooks/useBranding';
 import { Button } from '../ui/Button'; // Assuming Button component exists in UI kit
 import { Menu, MenuTrigger, MenuContent, MenuItem, MenuSeparator } from '../ui/Menu'; // Assuming Menu exists
 
 export default function Navbar() {
     const { user, logout } = useAuth();
     const navigate = useNavigate();
+    const { settings } = useBranding();
 
     const handleLogout = () => {
         logout();
@@ -17,8 +19,19 @@ export default function Navbar() {
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                 <div className="flex items-center justify-between h-16">
                     <div className="flex items-center">
-                        <Link to="/" className="text-xl font-bold text-blue-500">
-                            LMS Platform
+                        <Link to="/" className="flex items-center gap-3">
+                            {settings.logoUrl ? (
+                                <img src={settings.logoUrl} alt="Logo" className="h-8 w-auto object-contain" />
+                            ) : (
+                                <span className="text-xl font-bold" style={{ color: settings.primaryColor }}>
+                                    {settings.companyName}
+                                </span>
+                            )}
+                            {settings.logoUrl && (
+                                <span className="text-xl font-bold hidden md:block" style={{ color: settings.primaryColor }}>
+                                    {settings.companyName}
+                                </span>
+                            )}
                         </Link>
                         <div className="hidden md:block">
                             <div className="ml-10 flex items-baseline space-x-4">
@@ -42,7 +55,10 @@ export default function Navbar() {
                                 <Menu>
                                     <MenuTrigger className="flex items-center gap-2">
                                         <span className="text-sm font-medium">{user.name}</span>
-                                        <div className="h-8 w-8 rounded-full bg-indigo-500 flex items-center justify-center text-sm font-bold">
+                                        <div
+                                            className="h-8 w-8 rounded-full flex items-center justify-center text-sm font-bold text-white transition-colors"
+                                            style={{ backgroundColor: settings.primaryColor }}
+                                        >
                                             {user.name.charAt(0).toUpperCase()}
                                         </div>
                                     </MenuTrigger>
@@ -59,7 +75,7 @@ export default function Navbar() {
                                         <Button plain>Login</Button>
                                     </Link>
                                     <Link to="/register">
-                                        <Button color="indigo">Register</Button>
+                                        <Button style={{ backgroundColor: settings.primaryColor }} className="text-white hover:opacity-90">Register</Button>
                                     </Link>
                                 </>
                             )}

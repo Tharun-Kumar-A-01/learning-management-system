@@ -211,7 +211,7 @@ export default function CoursesListPage() {
                 {isTrainerOrAdmin && (
                     <Link
                         to="/courses/create"
-                        className="flex items-center gap-2 px-4 py-2 bg-[#5f82f3] text-black text-sm rounded-lg hover:bg-[#4a6fd3] transition-colors"
+                        className="flex items-center gap-2 px-4 py-2 bg-primary text-black text-sm rounded-lg hover:bg-[#4a6fd3] transition-colors"
                     >
                         <PlusIcon className="w-4 h-4" />
                         Create Course
@@ -238,7 +238,7 @@ export default function CoursesListPage() {
                                 key={f}
                                 onClick={() => setFilter(f)}
                                 className={`px-3 py-2 rounded-lg text-xs font-medium transition-colors ${filter === f
-                                    ? 'bg-[#5f82f3] text-black'
+                                    ? 'bg-primary text-black'
                                     : 'bg-[#1a1a1a] border border-[#2a2a2a] text-[#888] hover:text-[#e4e4ea]'
                                     }`}
                             >
@@ -366,7 +366,7 @@ export default function CoursesListPage() {
                                     ) : course.isEnrolled ? (
                                         <Link
                                             to={`/courses/${course._id}`}
-                                            className="flex items-center justify-center gap-1.5 px-3 py-2.5 bg-[#5f82f3] text-black text-xs font-medium rounded-lg hover:bg-[#4a6fd3] transition-colors"
+                                            className="flex items-center justify-center gap-1.5 px-3 py-2.5 bg-primary text-black text-xs font-medium rounded-lg hover:bg-[#4a6fd3] transition-colors"
                                         >
                                             <PlayIcon className="w-4 h-4" />
                                             Continue Learning
@@ -401,7 +401,7 @@ export default function CoursesListPage() {
                                                 )}
                                                 <Link
                                                     to={`/courses/${course._id}/edit`}
-                                                    className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2.5 bg-[#5f82f3] text-black text-xs font-medium rounded-lg hover:bg-[#4a6fd3] transition-colors"
+                                                    className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2.5 bg-primary text-black text-xs font-medium rounded-lg hover:bg-[#4a6fd3] transition-colors"
                                                 >
                                                     <PencilSquareIcon className="w-4 h-4" />
                                                     Edit
@@ -417,7 +417,7 @@ export default function CoursesListPage() {
                                     ) : (
                                         <Link
                                             to={`/courses/${course._id}`}
-                                            className="flex items-center justify-center gap-1.5 px-3 py-2.5 bg-[#5f82f3] text-white text-xs font-medium rounded-lg hover:bg-[#4a6fd3] transition-colors"
+                                            className="flex items-center justify-center gap-1.5 px-3 py-2.5 bg-primary text-white text-xs font-medium rounded-lg hover:bg-[#4a6fd3] transition-colors"
                                         >
                                             View Course
                                         </Link>

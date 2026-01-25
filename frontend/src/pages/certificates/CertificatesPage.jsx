@@ -22,6 +22,7 @@ export default function CertificatesPage() {
     const [courses, setCourses] = useState([]);
     const [loading, setLoading] = useState(true);
     const [generating, setGenerating] = useState(null);
+    const [certificatesEnabled, setCertificatesEnabled] = useState(true);
 
     useEffect(() => {
         fetchCompletedCourses();
@@ -29,13 +30,36 @@ export default function CertificatesPage() {
 
     const fetchCompletedCourses = async () => {
         try {
-            const res = await apiFetch('/courses/enrolled');
-            if (res.success) {
-                const completed = res.data.filter(c => c.completed || c.progress === 100);
+            setLoading(true);
+            const [coursesRes, policiesRes] = await Promise.all([
+                apiFetch('/courses/enrolled'),
+                apiFetch('/learning-policies')
+            ]);
+
+            if (coursesRes.success) {
+                const completed = coursesRes.data.filter(c => c.completed || c.progress === 100);
                 setCourses(completed);
             }
+
+            // Check certificate policy
+            if (policiesRes.success) {
+                const certPolicy = policiesRes.data.find(p => p.name === 'Certificate Auto-Generation');
+                // Store policy in state or check directly. 
+                // Since this is a simple page, let's filter the courses or disable generation if policy is off.
+                // However, the best UX is to show the certificates but maybe disable download or hide them?
+                // The user said: "turning off auto certificate generation, will not allow learner download certificates".
+
+                if (certPolicy && (certPolicy.value === 'false' || !certPolicy.enabled)) {
+                    // If policy is disabled, we can either clear courses or add a flag
+                    // For now, let's just clear courses so they see "No certificates yet" 
+                    // OR we can keep them but disable the button. Let's disable the button.
+                    setCertificatesEnabled(false);
+                } else {
+                    setCertificatesEnabled(true);
+                }
+            }
         } catch (error) {
-            console.error('Failed to fetch courses:', error);
+            console.error('Failed to fetch data:', error);
         } finally {
             setLoading(false);
         }
@@ -207,14 +231,20 @@ export default function CertificatesPage() {
                                 </div>
 
                                 {/* Download Button */}
-                                <button
-                                    onClick={() => generateCertificate(course)}
-                                    disabled={generating === course._id}
-                                    className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-[#5dff4f] text-[#0e0e0e] text-sm font-medium rounded hover:bg-[#4de63e] transition-colors disabled:opacity-50"
-                                >
-                                    <ArrowDownTrayIcon className="w-4 h-4" />
-                                    {generating === course._id ? 'Generating...' : 'Download Certificate'}
-                                </button>
+                                {certificatesEnabled ? (
+                                    <button
+                                        onClick={() => generateCertificate(course)}
+                                        disabled={generating === course._id}
+                                        className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-[#5dff4f] text-[#0e0e0e] text-sm font-medium rounded hover:bg-[#4de63e] transition-colors disabled:opacity-50"
+                                    >
+                                        <ArrowDownTrayIcon className="w-4 h-4" />
+                                        {generating === course._id ? 'Generating...' : 'Download Certificate'}
+                                    </button>
+                                ) : (
+                                    <div className="w-full px-4 py-2 bg-[#2a2a2a] text-[#666] text-sm font-medium rounded text-center cursor-not-allowed">
+                                        Certificate Downloads Disabled
+                                    </div>
+                                )}
                             </div>
                         </div>
                     ))}

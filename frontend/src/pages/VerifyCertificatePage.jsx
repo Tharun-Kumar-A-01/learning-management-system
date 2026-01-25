@@ -83,7 +83,7 @@ export default function VerifyCertificatePage() {
                         <button
                             type="submit"
                             disabled={loading}
-                            className="px-6 py-2 bg-[#5f82f3] text-black rounded-lg hover:bg-[#4a6fd3] transition-colors disabled:opacity-50"
+                            className="px-6 py-2 bg-primary text-black rounded-lg hover:bg-[#4a6fd3] transition-colors disabled:opacity-50"
                         >
                             {loading ? 'Verifying...' : 'Verify'}
                         </button>

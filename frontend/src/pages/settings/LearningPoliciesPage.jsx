@@ -84,7 +84,7 @@ export default function LearningPoliciesPage() {
                 <button
                     onClick={handleSave}
                     disabled={saving}
-                    className="flex items-center gap-2 px-4 py-2 bg-[#5f82f3] text-white text-sm rounded-lg hover:bg-[#4a6fd3] transition-colors disabled:opacity-50"
+                    className="flex items-center gap-2 px-4 py-2 bg-primary text-white text-sm rounded-lg hover:bg-[#4a6fd3] transition-colors disabled:opacity-50"
                 >
                     {saving ? 'Saving...' : 'Save Changes'}
                 </button>
@@ -124,7 +124,7 @@ export default function LearningPoliciesPage() {
                                 {policy.type === 'boolean' ? (
                                     <button
                                         onClick={() => updatePolicy(policy._id, 'value', policy.value === 'true' ? 'false' : 'true')}
-                                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${policy.value === 'true' ? 'bg-[#5f82f3]' : 'bg-[#2a2a2a]'
+                                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${policy.value === 'true' ? 'bg-primary' : 'bg-[#2a2a2a]'
                                             }`}
                                     >
                                         <span

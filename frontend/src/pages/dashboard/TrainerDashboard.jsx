@@ -56,7 +56,7 @@ export default function TrainerDashboard() {
                 </div>
                 <Link
                     to="/courses/create"
-                    className="flex items-center gap-2 px-4 py-2 bg-[#5f82f3] text-black text-sm rounded-lg hover:bg-[#4a6fd3] transition-colors"
+                    className="flex items-center gap-2 px-4 py-2 bg-primary text-black text-sm rounded-lg hover:bg-[#4a6fd3] transition-colors"
                 >
                     <PlusIcon className="w-4 h-4" />
                     New Course
@@ -115,7 +115,7 @@ export default function TrainerDashboard() {
                                 className="flex items-center justify-between p-4 bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg hover:border-[#5f82f3]/30 transition-colors"
                             >
                                 <div className="flex items-center gap-3">
-                                    <div className="w-10 h-10 bg-[#5f82f3]/10 rounded flex items-center justify-center">
+                                    <div className="w-10 h-10 bg-primary/10 rounded flex items-center justify-center">
                                         <BookOpenIcon className="w-5 h-5 text-[#5f82f3]" />
                                     </div>
                                     <div>

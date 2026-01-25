@@ -67,7 +67,7 @@ export default function ResetPasswordPage() {
                     </div>
                     <Link
                         to="/login"
-                        className="flex items-center justify-center gap-2 w-full px-4 py-2 bg-[#5f82f3] text-white rounded-lg hover:bg-[#4a6fd3] transition-colors"
+                        className="flex items-center justify-center gap-2 w-full px-4 py-2 bg-primary text-white rounded-lg hover:bg-[#4a6fd3] transition-colors"
                     >
                         Continue to Login
                     </Link>
@@ -91,7 +91,7 @@ export default function ResetPasswordPage() {
                     </div>
                     <Link
                         to="/forgot-password"
-                        className="flex items-center justify-center gap-2 w-full px-4 py-2 bg-[#5f82f3] text-white rounded-lg hover:bg-[#4a6fd3] transition-colors"
+                        className="flex items-center justify-center gap-2 w-full px-4 py-2 bg-primary text-white rounded-lg hover:bg-[#4a6fd3] transition-colors"
                     >
                         Request New Link
                     </Link>
@@ -104,7 +104,7 @@ export default function ResetPasswordPage() {
         <div className="min-h-screen flex items-center justify-center bg-black p-4">
             <div className="max-w-md w-full space-y-8 bg-zinc-900 p-8 rounded-xl border border-white/10">
                 <div>
-                    <div className="mx-auto w-16 h-16 bg-[#5f82f3]/10 rounded-full flex items-center justify-center mb-4">
+                    <div className="mx-auto w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mb-4">
                         <LockClosedIcon className="w-8 h-8 text-[#5f82f3]" />
                     </div>
                     <h2 className="text-center text-2xl font-bold text-white">

@@ -39,13 +39,48 @@ const DEFAULT_POLICIES = [
         value: '3',
         type: 'number',
         enabled: true
+    },
+    {
+        name: 'Mandatory Course Order',
+        description: 'Learners must complete lessons in sequential order',
+        value: 'false',
+        type: 'boolean',
+        enabled: true
+    },
+    {
+        name: 'Email Notifications',
+        description: 'Send email notifications for enrollment and completion events',
+        value: 'true',
+        type: 'boolean',
+        enabled: true
+    },
+    {
+        name: 'Show Progress Percentage',
+        description: 'Display progress percentage on course cards and dashboard',
+        value: 'true',
+        type: 'boolean',
+        enabled: true
+    },
+    {
+        name: 'Minimum Lesson Time',
+        description: 'Minimum seconds a learner must spend on each lesson',
+        value: '30',
+        type: 'number',
+        enabled: false
+    },
+    {
+        name: 'Allow Course Reviews',
+        description: 'Allow learners to leave reviews and ratings on courses',
+        value: 'true',
+        type: 'boolean',
+        enabled: true
     }
 ];
 
 // @desc    Get all learning policies
 // @route   GET /api/learning-policies
-// @access  Private (Super Admin only)
-router.get('/', protect, authorize('super_admin'), async (req, res) => {
+// @access  Private (All authenticated users)
+router.get('/', protect, async (req, res) => {
     try {
         let policies = await LearningPolicy.find().sort({ name: 1 });
 

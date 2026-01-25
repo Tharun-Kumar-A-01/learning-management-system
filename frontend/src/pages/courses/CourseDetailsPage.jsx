@@ -288,7 +288,7 @@ export default function CourseDetailsPage() {
                         {canEdit && (
                             <Link
                                 to={`/courses/${id}/edit`}
-                                className="flex items-center gap-1.5 px-4 py-2 bg-[#5f82f3] text-black text-sm font-medium rounded-lg hover:bg-[#4a6fd3] transition-colors"
+                                className="flex items-center gap-1.5 px-4 py-2 bg-primary text-black text-sm font-medium rounded-lg hover:bg-[#4a6fd3] transition-colors"
                             >
                                 <PencilSquareIcon className="w-4 h-4" />
                                 Edit
@@ -364,7 +364,7 @@ export default function CourseDetailsPage() {
                                             setActiveLesson(0);
                                         }}
                                         className={`w-full text-left p-3 rounded-lg transition-colors ${activeModule === mIndex
-                                            ? 'bg-[#5f82f3]/10 text-[#5f82f3]'
+                                            ? 'bg-primary/10 text-[#5f82f3]'
                                             : 'text-[#888] hover:bg-[#0e0e0e]'
                                             }`}
                                     >
@@ -502,7 +502,7 @@ export default function CourseDetailsPage() {
 
                                                                 let optionClass = 'border-[#2a2a2a] hover:border-[#5f82f3]/30';
                                                                 if (isSelected && !showResult) {
-                                                                    optionClass = 'border-[#5f82f3] bg-[#5f82f3]/10';
+                                                                    optionClass = 'border-[#5f82f3] bg-primary/10';
                                                                 } else if (showResult && isCorrect) {
                                                                     optionClass = 'border-[#5dff4f] bg-[#5dff4f]/10';
                                                                 } else if (showResult && isSelected && !isCorrect) {
@@ -518,7 +518,7 @@ export default function CourseDetailsPage() {
                                                                     >
                                                                         <div className="flex items-center gap-3">
                                                                             <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${isSelected ? 'border-[#5f82f3]' : 'border-[#666]'}`}>
-                                                                                {isSelected && <div className="w-2 h-2 rounded-full bg-[#5f82f3]" />}
+                                                                                {isSelected && <div className="w-2 h-2 rounded-full bg-primary" />}
                                                                             </div>
                                                                             <span className="text-sm text-[#e4e4ea]">{option}</span>
                                                                             {showResult && isCorrect && (
@@ -537,7 +537,7 @@ export default function CourseDetailsPage() {
                                                     <button
                                                         onClick={handleQuizSubmit}
                                                         disabled={Object.keys(quizAnswers).length !== currentLesson.questions?.length}
-                                                        className="w-full py-3 bg-[#5f82f3] text-black rounded-lg text-sm font-medium hover:bg-[#4a6fd3] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                                        className="w-full py-3 bg-primary text-black rounded-lg text-sm font-medium hover:bg-[#4a6fd3] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                                                     >
                                                         Submit Quiz
                                                     </button>
@@ -611,7 +611,7 @@ export default function CourseDetailsPage() {
                                             onClick={() => handleLessonComplete(currentLesson._id)}
                                             className={`px-6 py-2 rounded-lg text-sm font-medium transition-colors ${isLessonCompleted
                                                 ? 'bg-[#5dff4f]/10 text-[#5dff4f]'
-                                                : 'bg-[#5f82f3] text-white hover:bg-[#4a6fd3]'
+                                                : 'bg-primary text-white hover:bg-[#4a6fd3]'
                                                 }`}
                                         >
                                             {isLessonCompleted ? (

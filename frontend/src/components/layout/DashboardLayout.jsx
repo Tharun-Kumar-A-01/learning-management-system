@@ -94,7 +94,7 @@ export default function DashboardLayout({ children }) {
                                     <Link
                                         to={item.path}
                                         className={`flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors ${isActive
-                                            ? 'bg-[#5f82f3]/10 text-[#5f82f3]'
+                                            ? 'bg-primary/10 text-[#5f82f3]'
                                             : 'text-[#888] hover:text-[#e4e4ea] hover:bg-[#1a1a1a]'
                                             }`}
                                     >
@@ -110,7 +110,7 @@ export default function DashboardLayout({ children }) {
                 {/* User Info & Logout */}
                 <div className="p-4 border-t border-[#1a1a1a]">
                     <div className="flex items-center gap-3 mb-3">
-                        <div className="w-8 h-8 rounded-full bg-[#5f82f3]/20 flex items-center justify-center text-[#5f82f3] text-sm font-medium">
+                        <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center text-[#5f82f3] text-sm font-medium">
                             {user?.name?.charAt(0).toUpperCase() || 'U'}
                         </div>
                         <div className="flex-1 min-w-0">

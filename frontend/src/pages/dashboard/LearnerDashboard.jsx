@@ -23,7 +23,7 @@ const getProgressBgColor = (progress) => {
     if (progress === 100) return 'bg-[#5dff4f]/10';
     if (progress === 0) return 'bg-[#ff4848]/10';
     if (progress < 70) return 'bg-[#ffb84d]/10';
-    return 'bg-[#5f82f3]/10';
+    return 'bg-primary/10';
 };
 
 export default function LearnerDashboard() {
@@ -108,7 +108,7 @@ export default function LearnerDashboard() {
                 <div className="bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg p-5">
                     <div className="flex items-center justify-between mb-3">
                         <span className="text-sm text-[#888]">Enrolled</span>
-                        <div className="p-2 bg-[#5f82f3]/10 rounded">
+                        <div className="p-2 bg-primary/10 rounded">
                             <BookOpenIcon className="w-4 h-4 text-[#5f82f3]" />
                         </div>
                     </div>
@@ -218,8 +218,8 @@ export default function LearnerDashboard() {
                                     <p className="text-xs text-[#666] line-clamp-2 mb-3">{course.description}</p>
                                     <div className="flex items-center justify-between">
                                         <span className={`text-xs px-2 py-0.5 rounded ${course.difficulty === 'beginner' ? 'bg-[#5dff4f]/10 text-[#5dff4f]' :
-                                                course.difficulty === 'intermediate' ? 'bg-[#ffb84d]/10 text-[#ffb84d]' :
-                                                    'bg-[#ff4848]/10 text-[#ff4848]'
+                                            course.difficulty === 'intermediate' ? 'bg-[#ffb84d]/10 text-[#ffb84d]' :
+                                                'bg-[#ff4848]/10 text-[#ff4848]'
                                             }`}>
                                             {course.difficulty}
                                         </span>
@@ -238,7 +238,7 @@ export default function LearnerDashboard() {
                 <div className="flex gap-3">
                     <Link
                         to="/courses"
-                        className="px-4 py-2 bg-[#5f82f3] text-white text-sm rounded-lg hover:bg-[#4a6fd3] transition-colors"
+                        className="px-4 py-2 bg-primary text-white text-sm rounded-lg hover:bg-[#4a6fd3] transition-colors"
                     >
                         Browse Courses
                     </Link>

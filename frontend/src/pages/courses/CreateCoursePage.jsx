@@ -311,7 +311,7 @@ export default function CreateCoursePage() {
                             <button
                                 type="button"
                                 onClick={addModule}
-                                className="flex items-center gap-1 px-3 py-1.5 bg-[#5f82f3] text-black text-xs rounded hover:bg-[#4a6fd3] transition-colors"
+                                className="flex items-center gap-1 px-3 py-1.5 bg-primary text-black text-xs rounded hover:bg-[#4a6fd3] transition-colors"
                             >
                                 <PlusIcon className="w-4 h-4" />
                                 Add Module
@@ -494,7 +494,7 @@ export default function CreateCoursePage() {
                         <button
                             type="submit"
                             disabled={loading}
-                            className="flex-1 px-4 py-2 bg-[#5f82f3] text-white text-sm rounded-lg hover:bg-[#4a6fd3] transition-colors disabled:opacity-50"
+                            className="flex-1 px-4 py-2 bg-primary text-white text-sm rounded-lg hover:bg-[#4a6fd3] transition-colors disabled:opacity-50"
                         >
                             {loading ? (isEditMode ? 'Saving...' : 'Creating...') : (isEditMode ? 'Save Changes' : 'Create Course')}
                         </button>
