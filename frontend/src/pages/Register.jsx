@@ -46,6 +46,7 @@ export default function Register() {
                         </div>
                     )}
                     <div className="space-y-4 rounded-md shadow-sm">
+                        {/* Input fields for signup */}
                         <Input
                             label="Full Name"
                             type="text"

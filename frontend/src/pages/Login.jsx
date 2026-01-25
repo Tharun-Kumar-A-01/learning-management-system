@@ -37,6 +37,7 @@ export default function Login() {
                         </div>
                     )}
                     <div className="space-y-4 rounded-md shadow-sm">
+                        {/* Input fields for login */}
                         <Input
                             label="Email address"
                             type="email"
@@ -57,6 +58,7 @@ export default function Login() {
 
                     <div className="flex items-center justify-between">
                         <div className="text-sm">
+                        {/* link to Forget Password page */}
                             <Link to="/forgot-password" className="font-medium text-indigo-500 hover:text-indigo-400">
                                 Forgot your password?
                             </Link>
@@ -70,6 +72,7 @@ export default function Login() {
                     </div>
 
                     <div className="text-center text-sm text-zinc-400">
+                        {/* link to Register page */}
                         Don't have an account?{' '}
                         <Link to="/register" className="font-medium text-indigo-500 hover:text-indigo-400">
                             Register here
