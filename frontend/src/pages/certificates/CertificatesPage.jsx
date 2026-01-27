@@ -37,7 +37,7 @@ export default function CertificatesPage() {
             ]);
 
             if (coursesRes.success) {
-                const completed = coursesRes.data.filter(c => c.completed || c.progress === 100);
+                const completed = coursesRes.data.filter(c => (c.completed || c.progress === 100) && c.certificateEnabled !== false);
                 setCourses(completed);
             }
 

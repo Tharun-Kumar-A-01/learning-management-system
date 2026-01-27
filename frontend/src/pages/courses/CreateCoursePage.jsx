@@ -32,6 +32,7 @@ export default function CreateCoursePage() {
         category: 'General',
         difficulty: 'beginner',
         thumbnail: '',
+        certificateEnabled: true,
         modules: []
     });
 
@@ -138,7 +139,10 @@ export default function CreateCoursePage() {
             content: '',
             duration: 0,
             order: newModules[moduleIndex].lessons.length,
-            questions: type === 'quiz' ? [] : undefined
+            questions: type === 'quiz' ? [] : undefined,
+            passingPercentage: 70,
+            maxAttempts: 0,
+            timeLimit: 0
         };
         newModules[moduleIndex].lessons.push(lesson);
         setCourse({ ...course, modules: newModules });
@@ -302,6 +306,19 @@ export default function CreateCoursePage() {
                                 </div>
                             </div>
                         </div>
+
+                        <div className="flex items-center gap-2 pt-2 border-t border-[#2a2a2a]">
+                            <input
+                                type="checkbox"
+                                id="certificateEnabled"
+                                checked={course.certificateEnabled}
+                                onChange={(e) => setCourse({ ...course, certificateEnabled: e.target.checked })}
+                                className="accent-[#5f82f3] w-4 h-4 rounded"
+                            />
+                            <label htmlFor="certificateEnabled" className="text-xs text-[#e4e4ea] cursor-pointer">
+                                Enable Certificate for this course (requires passing all quizzes)
+                            </label>
+                        </div>
                     </div>
 
                     {/* Modules */}
@@ -371,65 +388,189 @@ export default function CreateCoursePage() {
                                                             </button>
                                                         </div>
 
-                                                        {/* Quiz Questions */}
+                                                        {/* Quiz Settings & Questions */}
                                                         {lesson.type === 'quiz' && (
                                                             <div className="mt-3 pt-3 border-t border-[#2a2a2a]">
-                                                                <div className="flex items-center justify-between mb-2">
-                                                                    <span className="text-xs text-[#666]">Questions</span>
+                                                                {/* Quiz Config */}
+                                                                <div className="mb-4 p-4 bg-[#0e0e0e]/50 rounded-lg border border-[#2a2a2a] flex flex-wrap gap-4 items-end">
+                                                                    <div className="flex-1 min-w-[120px]">
+                                                                        <label className="block text-[10px] uppercase font-bold text-[#666] mb-1.5 ml-1">Passing %</label>
+                                                                        <div className="flex items-center gap-2 bg-[#141414] border border-[#2a2a2a] rounded px-2 focus-within:border-[#5f82f3] transition-colors">
+                                                                            <input
+                                                                                type="number"
+                                                                                min="0"
+                                                                                max="100"
+                                                                                value={lesson.passingPercentage || 70}
+                                                                                onChange={(e) => updateLesson(mIndex, lIndex, 'passingPercentage', parseInt(e.target.value))}
+                                                                                className="w-full py-1.5 bg-transparent text-sm text-[#e4e4ea] focus:outline-none"
+                                                                            />
+                                                                            <span className="text-[#444] text-xs">%</span>
+                                                                        </div>
+                                                                    </div>
+                                                                    <div className="flex-1 min-w-[120px]">
+                                                                        <label className="block text-[10px] uppercase font-bold text-[#666] mb-1.5 ml-1">Max Attempts</label>
+                                                                        <input
+                                                                            type="number"
+                                                                            min="0"
+                                                                            value={lesson.maxAttempts || 0}
+                                                                            onChange={(e) => updateLesson(mIndex, lIndex, 'maxAttempts', parseInt(e.target.value))}
+                                                                            className="w-full px-3 py-1.5 bg-[#141414] border border-[#2a2a2a] rounded text-sm text-[#e4e4ea] focus:outline-none focus:border-[#5f82f3] transition-colors"
+                                                                            placeholder="0 = Unlimited"
+                                                                        />
+                                                                    </div>
+                                                                    <div className="flex-1 min-w-[120px]">
+                                                                        <label className="block text-[10px] uppercase font-bold text-[#666] mb-1.5 ml-1">Timer (Mins)</label>
+                                                                        <input
+                                                                            type="number"
+                                                                            min="0"
+                                                                            value={lesson.timeLimit || 0}
+                                                                            onChange={(e) => updateLesson(mIndex, lIndex, 'timeLimit', parseInt(e.target.value))}
+                                                                            className="w-full px-3 py-1.5 bg-[#141414] border border-[#2a2a2a] rounded text-sm text-[#e4e4ea] focus:outline-none focus:border-[#5f82f3] transition-colors"
+                                                                            placeholder="0 = No limit"
+                                                                        />
+                                                                    </div>
+                                                                </div>
+
+                                                                <div className="space-y-4">
+                                                                    {(lesson.questions || []).map((q, qIndex) => (
+                                                                        <div key={qIndex} className="bg-[#0e0e0e] border border-[#2a2a2a] rounded-lg p-4 relative group">
+                                                                            <div className="flex items-center gap-3 mb-4">
+                                                                                <div className="w-6 h-6 rounded bg-[#2a2a2a] flex items-center justify-center text-[10px] font-bold text-[#888]">
+                                                                                    {qIndex + 1}
+                                                                                </div>
+                                                                                <select
+                                                                                    value={q.type}
+                                                                                    onChange={(e) => {
+                                                                                        const type = e.target.value;
+                                                                                        const updates = { type };
+                                                                                        if (type === 'true_false') {
+                                                                                            updates.options = ['True', 'False'];
+                                                                                            updates.correctAnswer = 0;
+                                                                                        } else if (q.type === 'true_false') {
+                                                                                            updates.options = ['', '', '', ''];
+                                                                                            updates.correctAnswer = 0;
+                                                                                        }
+                                                                                        Object.entries(updates).forEach(([k, v]) => updateQuestion(mIndex, lIndex, qIndex, k, v));
+                                                                                    }}
+                                                                                    className="bg-[#1a1a1a] border border-[#2a2a2a] rounded text-[10px] text-[#e4e4ea] px-2 py-1 focus:outline-none focus:border-[#5f82f3]"
+                                                                                >
+                                                                                    <option value="mcq">Multiple Choice</option>
+                                                                                    <option value="true_false">True / False</option>
+                                                                                </select>
+                                                                                <div className="flex items-center gap-1.5 ml-auto mr-4">
+                                                                                    <span className="text-[10px] uppercase font-bold text-[#444]">Points:</span>
+                                                                                    <input
+                                                                                        type="number"
+                                                                                        min="1"
+                                                                                        value={q.points || 1}
+                                                                                        onChange={(e) => updateQuestion(mIndex, lIndex, qIndex, 'points', parseInt(e.target.value))}
+                                                                                        className="w-10 bg-[#1a1a1a] border border-[#2a2a2a] rounded text-[10px] text-[#e4e4ea] py-0.5 focus:outline-none focus:border-[#5f82f3] text-center font-bold"
+                                                                                    />
+                                                                                </div>
+                                                                                <button
+                                                                                    type="button"
+                                                                                    onClick={() => removeQuestion(mIndex, lIndex, qIndex)}
+                                                                                    className="flex items-center gap-1.5 px-2 py-1 rounded bg-[#ff4848]/10 text-[#ff4848] text-[10px] font-medium hover:bg-[#ff4848]/20 transition-colors"
+                                                                                >
+                                                                                    <TrashIcon className="w-3.5 h-3.5" />
+                                                                                    Delete Question
+                                                                                </button>
+                                                                            </div>
+
+                                                                            <textarea
+                                                                                value={q.question}
+                                                                                onChange={(e) => updateQuestion(mIndex, lIndex, qIndex, 'question', e.target.value)}
+                                                                                onInput={(e) => {
+                                                                                    e.target.style.height = 'auto';
+                                                                                    e.target.style.height = e.target.scrollHeight + 'px';
+                                                                                }}
+                                                                                className="w-full px-4 py-3 bg-[#111] border-2 border-[#2a2a2a] rounded-xl text-sm text-[#e4e4ea] focus:outline-none focus:border-[#5f82f3] focus:ring-2 focus:ring-[#5f82f3]/20 mb-4 resize-none overflow-hidden transition-all placeholder-[#444]"
+                                                                                placeholder="Enter your question here..."
+                                                                                rows={1}
+                                                                            />
+
+                                                                            <div className="space-y-2">
+                                                                                {q.type === 'mcq' ? (
+                                                                                    q.options.map((opt, oIndex) => (
+                                                                                        <div key={oIndex} className={`flex items-center gap-3 p-2.5 rounded-lg border transition-all ${q.correctAnswer === oIndex ? 'bg-[#5dff4f]/5 border-[#5dff4f]/30 ring-1 ring-[#5dff4f]/20' : 'bg-[#1a1a1a] border-[#2a2a2a]'}`}>
+                                                                                            <input
+                                                                                                type="radio"
+                                                                                                name={`correct-${mIndex}-${lIndex}-${qIndex}`}
+                                                                                                checked={q.correctAnswer === oIndex}
+                                                                                                onChange={() => updateQuestion(mIndex, lIndex, qIndex, 'correctAnswer', oIndex)}
+                                                                                                className="accent-[#5dff4f] w-3.5 h-3.5 cursor-pointer"
+                                                                                            />
+                                                                                            <input
+                                                                                                type="text"
+                                                                                                value={opt}
+                                                                                                onChange={(e) => updateOption(mIndex, lIndex, qIndex, oIndex, e.target.value)}
+                                                                                                className={`flex-1 bg-transparent text-sm transition-colors focus:outline-none focus:ring-0 ${q.correctAnswer === oIndex ? 'text-[#5dff4f] font-medium' : 'text-[#888]'}`}
+                                                                                                placeholder={`Enter option ${oIndex + 1}...`}
+                                                                                            />
+                                                                                        </div>
+                                                                                    ))
+                                                                                ) : (
+                                                                                    <div className="grid grid-cols-2 gap-3">
+                                                                                        {['True', 'False'].map((val, oIndex) => (
+                                                                                            <button
+                                                                                                key={oIndex}
+                                                                                                type="button"
+                                                                                                onClick={() => updateQuestion(mIndex, lIndex, qIndex, 'correctAnswer', oIndex)}
+                                                                                                className={`flex items-center justify-center gap-2 p-3 rounded-lg border font-bold text-xs transition-all ${q.correctAnswer === oIndex ? 'bg-[#5dff4f] border-[#5dff4f] text-[#0e0e0e] shadow-lg shadow-[#5dff4f]/10' : 'bg-[#1a1a1a] border-[#2a2a2a] text-[#666] hover:border-[#444]'}`}
+                                                                                            >
+                                                                                                {val}
+                                                                                            </button>
+                                                                                        ))}
+                                                                                    </div>
+                                                                                )}
+                                                                            </div>
+                                                                        </div>
+                                                                    ))}
+                                                                </div>
+
+                                                                <div className="mt-4 flex justify-center">
                                                                     <button
                                                                         type="button"
                                                                         onClick={() => addQuestion(mIndex, lIndex)}
-                                                                        className="text-xs text-[#5f82f3] hover:underline"
+                                                                        className="flex items-center gap-2 px-6 py-2 bg-[#2a2a2a] hover:bg-[#333] text-[#e4e4ea] text-xs font-bold rounded-lg transition-all border border-[#333] hover:border-[#444]"
                                                                     >
-                                                                        + Add Question
+                                                                        <PlusIcon className="w-4 h-4" />
+                                                                        Add New Question
                                                                     </button>
                                                                 </div>
-                                                                {(lesson.questions || []).map((q, qIndex) => (
-                                                                    <div key={qIndex} className="bg-[#0e0e0e] rounded p-3 mb-2">
-                                                                        <div className="flex items-center justify-between mb-2">
-                                                                            <span className="text-xs text-[#666]">Q{qIndex + 1}</span>
-                                                                            <button
-                                                                                type="button"
-                                                                                onClick={() => removeQuestion(mIndex, lIndex, qIndex)}
-                                                                                className="text-[#ff4848] text-xs"
-                                                                            >
-                                                                                Remove
-                                                                            </button>
-                                                                        </div>
-                                                                        <input
-                                                                            type="text"
-                                                                            value={q.question}
-                                                                            onChange={(e) => updateQuestion(mIndex, lIndex, qIndex, 'question', e.target.value)}
-                                                                            className="w-full px-2 py-1 mb-2 bg-transparent border border-[#2a2a2a] rounded text-sm text-[#e4e4ea] focus:outline-none focus:border-[#5f82f3]"
-                                                                            placeholder="Enter question"
-                                                                        />
-                                                                        <div className="grid grid-cols-2 gap-2">
-                                                                            {q.options.map((opt, oIndex) => (
-                                                                                <div key={oIndex} className="flex items-center gap-2">
-                                                                                    <input
-                                                                                        type="radio"
-                                                                                        name={`correct-${mIndex}-${lIndex}-${qIndex}`}
-                                                                                        checked={q.correctAnswer === oIndex}
-                                                                                        onChange={() => updateQuestion(mIndex, lIndex, qIndex, 'correctAnswer', oIndex)}
-                                                                                        className="accent-[#5f82f3]"
-                                                                                    />
-                                                                                    <input
-                                                                                        type="text"
-                                                                                        value={opt}
-                                                                                        onChange={(e) => updateOption(mIndex, lIndex, qIndex, oIndex, e.target.value)}
-                                                                                        className="flex-1 px-2 py-1 bg-transparent border border-[#2a2a2a] rounded text-xs text-[#e4e4ea] focus:outline-none focus:border-[#5f82f3]"
-                                                                                        placeholder={`Option ${oIndex + 1}`}
-                                                                                    />
-                                                                                </div>
-                                                                            ))}
-                                                                        </div>
-                                                                    </div>
-                                                                ))}
                                                             </div>
                                                         )}
 
-                                                        {/* Content for non-quiz lessons */}
-                                                        {lesson.type !== 'quiz' && (
+                                                        {lesson.type === 'assessment' && (
+                                                            <div className="mt-3 pt-3 border-t border-[#2a2a2a]">
+                                                                <div className="mb-4 p-4 bg-[#0e0e0e]/50 rounded-lg border border-[#2a2a2a] flex flex-wrap gap-4 items-end">
+                                                                    <div className="flex-1 min-w-[150px]">
+                                                                        <label className="block text-[10px] uppercase font-bold text-[#666] mb-1.5 ml-1">Passing Percentage</label>
+                                                                        <div className="flex items-center gap-2 bg-[#141414] border border-[#2a2a2a] rounded px-2 focus-within:border-[#5f82f3] transition-colors">
+                                                                            <input
+                                                                                type="number"
+                                                                                min="0"
+                                                                                max="100"
+                                                                                value={lesson.passingPercentage || 70}
+                                                                                onChange={(e) => updateLesson(mIndex, lIndex, 'passingPercentage', parseInt(e.target.value))}
+                                                                                className="w-full py-1.5 bg-transparent text-sm text-[#e4e4ea] focus:outline-none"
+                                                                            />
+                                                                            <span className="text-[#444] text-xs">%</span>
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+                                                                <label className="block text-[10px] uppercase font-bold text-[#666] mb-2 ml-1">Assessment Requirements</label>
+                                                                <textarea
+                                                                    value={lesson.content}
+                                                                    onChange={(e) => updateLesson(mIndex, lIndex, 'content', e.target.value)}
+                                                                    className="w-full px-4 py-3 bg-[#111] border border-[#2a2a2a] rounded-xl text-sm text-[#e4e4ea] focus:outline-none focus:border-[#5f82f3] min-h-[120px] transition-all placeholder-[#444]"
+                                                                    placeholder="Describe what the learner must do to complete this assessment (e.g., 'Upload a 2-page report on...')"
+                                                                />
+                                                            </div>
+                                                        )}
+
+                                                        {/* Content for non-quiz/non-assessment lessons */}
+                                                        {lesson.type !== 'quiz' && lesson.type !== 'assessment' && (
                                                             <textarea
                                                                 value={lesson.content}
                                                                 onChange={(e) => updateLesson(mIndex, lIndex, 'content', e.target.value)}
@@ -464,6 +605,13 @@ export default function CreateCoursePage() {
                                                     className="text-xs text-[#666] hover:text-[#5f82f3]"
                                                 >
                                                     + Quiz
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => addLesson(mIndex, 'assessment')}
+                                                    className="text-xs text-[#666] hover:text-[#5f82f3]"
+                                                >
+                                                    + Assessment
                                                 </button>
                                             </div>
                                         </div>

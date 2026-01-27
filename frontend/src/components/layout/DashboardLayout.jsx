@@ -12,7 +12,9 @@ import {
     PaintBrushIcon,
     ClipboardDocumentCheckIcon,
     TrophyIcon,
-    ArrowRightOnRectangleIcon
+    ArrowRightOnRectangleIcon,
+    ChatBubbleLeftRightIcon,
+    DocumentIcon
 } from '@heroicons/react/24/outline';
 
 export default function DashboardLayout({ children }) {
@@ -67,7 +69,12 @@ export default function DashboardLayout({ children }) {
             ]
         };
 
-        return [...common, ...(roleItems[user?.role] || [])];
+        return [
+            ...common,
+            ...(roleItems[user?.role] || []),
+            { path: '/assessments', label: 'Assessments', icon: DocumentIcon },
+            { path: '/appeals', label: 'Course Appeals', icon: ChatBubbleLeftRightIcon }
+        ];
     };
 
     const navItems = getNavItems();

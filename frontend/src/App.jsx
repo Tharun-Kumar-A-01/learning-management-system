@@ -15,6 +15,8 @@ import SuperAdminDashboard from './pages/dashboard/SuperAdminDashboard';
 import CoursesListPage from './pages/courses/CoursesListPage';
 import CourseDetailsPage from './pages/courses/CourseDetailsPage';
 import CreateCoursePage from './pages/courses/CreateCoursePage';
+import AppealsPage from './pages/courses/AppealsPage';
+import AssessmentsPage from './pages/courses/AssessmentsPage';
 
 // User pages
 import UsersListPage from './pages/users/UsersListPage';
@@ -269,6 +271,14 @@ export default function App() {
               }
             />
             <Route
+              path="/assessments"
+              element={
+                <ProtectedRoute allowedRoles={['trainer', 'admin', 'super_admin']}>
+                  <AssessmentsPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
               path="/courses/:id"
               element={
                 <ProtectedRoute>
@@ -281,6 +291,14 @@ export default function App() {
               element={
                 <ProtectedRoute allowedRoles={['trainer', 'admin', 'super_admin']}>
                   <CreateCoursePage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/appeals"
+              element={
+                <ProtectedRoute>
+                  <AppealsPage />
                 </ProtectedRoute>
               }
             />
@@ -438,19 +456,7 @@ function EnrollmentsPage() {
   );
 }
 
-function AssessmentsPage() {
-  return (
-    <ProtectedRouteContent title="Assessments" description="Create and manage quizzes">
-      <div className="bg-zinc-900/50 rounded-xl border border-white/10 p-12 text-center">
-        <div className="text-5xl mb-4">📝</div>
-        <h3 className="text-xl font-semibold text-white mb-2">Assessment Management</h3>
-        <p className="text-zinc-400">
-          Create quizzes with MCQ and True/False questions. Set passing criteria and auto-evaluate learner responses.
-        </p>
-      </div>
-    </ProtectedRouteContent>
-  );
-}
+
 
 function OrganizationsPage() {
   return (

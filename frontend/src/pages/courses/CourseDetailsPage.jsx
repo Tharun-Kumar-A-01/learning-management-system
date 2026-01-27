@@ -17,11 +17,20 @@ import {
     ExclamationTriangleIcon,
     EyeSlashIcon,
     ArrowUpOnSquareIcon,
+    ArrowDownTrayIcon,
     PencilSquareIcon,
     TrashIcon,
     PlusIcon
 } from '@heroicons/react/24/outline';
-import { CheckCircleIcon as CheckCircleSolid } from '@heroicons/react/24/solid';
+import {
+    CheckCircleIcon as CheckCircleSolid,
+    ExclamationTriangleIcon as ExclamationTriangleSolid,
+    TrashIcon as TrashSolid,
+    XMarkIcon as XMarkSolid,
+    PaperClipIcon,
+    CloudArrowUpIcon,
+    DocumentIcon
+} from '@heroicons/react/24/solid';
 
 // Helper function for progress colors
 const getProgressColor = (progress) => {
@@ -70,8 +79,15 @@ export default function CourseDetailsPage() {
 
     // Quiz state
     const [quizAnswers, setQuizAnswers] = useState({});
+    const [quizStarted, setQuizStarted] = useState(false);
     const [quizSubmitted, setQuizSubmitted] = useState(false);
     const [quizResults, setQuizResults] = useState(null);
+    const [timeRemaining, setTimeRemaining] = useState(null);
+    const [previewMode, setPreviewMode] = useState(false);
+    const [generating, setGenerating] = useState(false);
+    const [appealReason, setAppealReason] = useState('');
+    const [showAppealModal, setShowAppealModal] = useState(false);
+    const [submittingAppeal, setSubmittingAppeal] = useState(false);
 
     const isOwner = course?.createdBy?._id === user?.id || course?.createdBy === user?.id;
     const isTrainer = user?.role === 'trainer';
@@ -86,9 +102,77 @@ export default function CourseDetailsPage() {
     // Reset quiz state when lesson changes
     useEffect(() => {
         setQuizAnswers({});
+        setQuizStarted(false);
         setQuizSubmitted(false);
         setQuizResults(null);
-    }, [activeModule, activeLesson]);
+        setTimeRemaining(null);
+        setPreviewMode(false);
+        setAppealReason('');
+        setShowAppealModal(false);
+
+        // Load existing quiz results if any
+        if (course) {
+            const currentLesson = course.modules?.[activeModule]?.lessons?.[activeLesson];
+            if (currentLesson) {
+                // Try direct results first (learners get this), then search enrollments (trainers see all)
+                let result = course.quizResults?.find(r => r.lessonId === currentLesson._id);
+
+                if (!result && course.enrollments) {
+                    const enrollment = course.enrollments.find(e => e.userId === user?.id || e.userId?._id === user?.id);
+                    if (enrollment && enrollment.quizResults) {
+                        result = enrollment.quizResults.find(r => r.lessonId === currentLesson._id);
+                    }
+                }
+
+                if (result) {
+                    setQuizResults({
+                        ...result,
+                        attemptsLeft: currentLesson.maxAttempts > 0 ? Math.max(0, (currentLesson.maxAttempts + (result.appeal?.status === 'approved' ? 3 : 0)) - result.attempts.length) : null,
+                        percentage: result.bestScore,
+                        passed: result.isPassed,
+                        appealStatus: result.appeal?.status || 'none'
+                    });
+                    if (result.isPassed || (currentLesson.maxAttempts > 0 && result.attempts.length >= (currentLesson.maxAttempts + (result.appeal?.status === 'approved' ? 3 : 0)))) {
+                        setQuizSubmitted(true);
+                    }
+                } else if (course.assessmentResults) {
+                    // Try assessment results
+                    const assessmentResult = course.assessmentResults.find(r => r.lessonId === currentLesson._id);
+                    if (assessmentResult) {
+                        setQuizResults({
+                            ...assessmentResult,
+                            passed: assessmentResult.isPassed,
+                            percentage: assessmentResult.score,
+                            appealStatus: assessmentResult.appeal?.status || 'none',
+                            status: assessmentResult.status,
+                            type: 'assessment'
+                        });
+                        if (assessmentResult.status === 'passed' || assessmentResult.status === 'failed' || assessmentResult.status === 'graded') {
+                            // Do not set quizSubmitted=true for assessments, as AssessmentView handles results
+                        }
+                    }
+                }
+            }
+        }
+    }, [activeModule, activeLesson, course]);
+
+    // Timer effect
+    useEffect(() => {
+        if (quizStarted && timeRemaining !== null && timeRemaining > 0 && !quizSubmitted) {
+            const timer = setInterval(() => {
+                setTimeRemaining(prev => prev - 1);
+            }, 1000);
+            return () => clearInterval(timer);
+        } else if (timeRemaining === 0 && !quizSubmitted) {
+            handleQuizSubmit();
+        }
+    }, [quizStarted, timeRemaining, quizSubmitted]);
+
+    const formatTime = (seconds) => {
+        const mins = Math.floor(seconds / 60);
+        const secs = seconds % 60;
+        return `${mins}:${secs.toString().padStart(2, '0')}`;
+    };
 
     const fetchCourse = async () => {
         try {
@@ -173,26 +257,77 @@ export default function CourseDetailsPage() {
         }));
     };
 
-    const handleQuizSubmit = () => {
+    const startQuiz = () => {
         const currentLesson = course.modules?.[activeModule]?.lessons?.[activeLesson];
-        if (!currentLesson?.questions) return;
+        setQuizAnswers({});
+        setQuizSubmitted(false);
+        if (currentLesson?.timeLimit > 0) {
+            setTimeRemaining(currentLesson.timeLimit * 60);
+        }
+        setQuizStarted(true);
+    };
 
-        const results = currentLesson.questions.map((q, idx) => ({
-            correct: quizAnswers[idx] === q.correctAnswer,
-            selectedAnswer: quizAnswers[idx],
-            correctAnswer: q.correctAnswer
-        }));
+    const handleAppealSubmit = async () => {
+        const currentLesson = course.modules?.[activeModule]?.lessons?.[activeLesson];
+        if (!appealReason || !currentLesson) return;
 
-        const allCorrect = results.every(r => r.correct);
-        setQuizResults({ results, allCorrect, score: results.filter(r => r.correct).length });
-        setQuizSubmitted(true);
+        setSubmittingAppeal(true);
+        try {
+            const type = currentLesson.type === 'quiz' ? 'quiz' : 'assessment';
+            const res = await apiFetch(`/courses/${id}/${type}/${currentLesson._id}/appeal`, {
+                method: 'POST',
+                body: { reason: appealReason }
+            });
 
-        // If all answers are correct, allow marking as complete
-        if (allCorrect) {
-            // Automatically mark as complete after a short delay
-            setTimeout(() => {
-                handleLessonComplete(currentLesson._id);
-            }, 1500);
+            if (res.success) {
+                setShowAppealModal(false);
+                setAppealReason('');
+                fetchCourse();
+            }
+        } catch (error) {
+            console.error('Failed to submit appeal:', error);
+        } finally {
+            setSubmittingAppeal(false);
+        }
+    };
+
+    const handleAssessmentSubmit = async (fileBase64) => {
+        const currentLesson = course.modules?.[activeModule]?.lessons?.[activeLesson];
+        if (!currentLesson) return;
+
+        try {
+            const res = await apiFetch(`/courses/${id}/assessment/${currentLesson._id}/submit`, {
+                method: 'POST',
+                body: { submissionFile: fileBase64 }
+            });
+            if (res.success) {
+                fetchCourse();
+            }
+        } catch (error) {
+            console.error('Failed to submit assessment:', error);
+        }
+    };
+
+    const handleQuizSubmit = async () => {
+        const currentLesson = course.modules?.[activeModule]?.lessons?.[activeLesson];
+        if (!currentLesson) return;
+
+        setLoading(true);
+        try {
+            const res = await apiFetch(`/courses/${id}/quiz/${currentLesson._id}/submit`, {
+                method: 'POST',
+                body: { answers: quizAnswers }
+            });
+
+            if (res.success) {
+                setQuizResults(res.data);
+                setQuizSubmitted(true);
+                fetchCourse(); // Refresh course data for progress/certificates
+            }
+        } catch (error) {
+            console.error('Quiz submission failed:', error);
+        } finally {
+            setLoading(false);
         }
     };
 
@@ -203,6 +338,103 @@ export default function CourseDetailsPage() {
             case 'quiz': return QuestionMarkCircleIcon;
             default: return BookOpenIcon;
         }
+    };
+
+    const generateCertificate = () => {
+        if (!course || !user) return;
+        setGenerating(true);
+
+        const canvas = document.createElement('canvas');
+        canvas.width = 1000;
+        canvas.height = 700;
+        const ctx = canvas.getContext('2d');
+
+        // White background
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        // Decorative border
+        ctx.strokeStyle = '#1a365d';
+        ctx.lineWidth = 4;
+        ctx.strokeRect(30, 30, canvas.width - 60, canvas.height - 60);
+        ctx.strokeStyle = '#c5a572';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(45, 45, canvas.width - 90, canvas.height - 90);
+
+        // Header
+        ctx.fillStyle = '#1a365d';
+        ctx.font = 'bold 42px Georgia';
+        ctx.textAlign = 'center';
+        ctx.fillText('CERTIFICATE OF COMPLETION', canvas.width / 2, 120);
+
+        // Decorative line
+        ctx.strokeStyle = '#c5a572';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(250, 145);
+        ctx.lineTo(750, 145);
+        ctx.stroke();
+
+        // This certifies that
+        ctx.fillStyle = '#333333';
+        ctx.font = 'italic 18px Georgia';
+        ctx.fillText('This is to certify that', canvas.width / 2, 200);
+
+        // User name
+        ctx.fillStyle = '#1a365d';
+        ctx.font = 'bold 36px Georgia';
+        ctx.fillText(user?.name || 'Student', canvas.width / 2, 255);
+
+        // Has completed
+        ctx.fillStyle = '#333333';
+        ctx.font = 'italic 18px Georgia';
+        ctx.fillText('has successfully completed the course', canvas.width / 2, 310);
+
+        // Course title
+        ctx.fillStyle = '#1a365d';
+        ctx.font = 'bold 28px Georgia';
+        const courseTitle = course.title.length > 50 ? course.title.substring(0, 47) + '...' : course.title;
+        ctx.fillText(courseTitle, canvas.width / 2, 365);
+
+        // Instructor line
+        ctx.fillStyle = '#333333';
+        ctx.font = 'italic 16px Georgia';
+        ctx.fillText('under the instruction of', canvas.width / 2, 420);
+
+        ctx.fillStyle = '#1a365d';
+        ctx.font = '20px Georgia';
+        ctx.fillText(course.createdBy?.name || 'Course Instructor', canvas.width / 2, 455);
+
+        // Completion date
+        const completionDate = new Date().toLocaleDateString('en-US', {
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric'
+        });
+        ctx.fillStyle = '#666666';
+        ctx.font = '16px Georgia';
+        ctx.fillText(`Awarded on ${completionDate}`, canvas.width / 2, 520);
+
+        // Decorative line before footer
+        ctx.strokeStyle = '#c5a572';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(200, 560);
+        ctx.lineTo(800, 560);
+        ctx.stroke();
+
+        // Certificate ID
+        ctx.fillStyle = '#888888';
+        ctx.font = '12px Arial';
+        ctx.fillText(`Certificate ID: ${course._id}`, canvas.width / 2, 600);
+
+        // Download
+        const link = document.createElement('a');
+        link.download = `certificate-${course.title.replace(/[^a-z0-9]/gi, '-').toLowerCase()}.png`;
+        link.href = canvas.toDataURL('image/png');
+        link.click();
+
+        setGenerating(false);
     };
 
     if (loading) {
@@ -232,7 +464,7 @@ export default function CourseDetailsPage() {
     const currentModule = course.modules?.[activeModule];
     const currentLesson = currentModule?.lessons?.[activeLesson];
     const progress = course.progress || 0;
-    const isQuizLesson = currentLesson?.type === 'quiz';
+    const isQuizLesson = currentLesson?.type === 'quiz' || currentLesson?.type === 'assessment';
     const isLessonCompleted = course.completedLessons?.includes(currentLesson?._id);
 
     // For quiz lessons, check if can complete (all correct or already completed)
@@ -319,6 +551,16 @@ export default function CourseDetailsPage() {
                             >
                                 <TrashIcon className="w-4 h-4" />
                                 Unenroll
+                            </button>
+                        )}
+                        {isLearner && course.isEnrolled && progress === 100 && course.certificateEnabled !== false && (
+                            <button
+                                onClick={generateCertificate}
+                                disabled={generating}
+                                className="flex items-center gap-1.5 px-4 py-2 bg-[#5dff4f] text-[#0e0e0e] text-sm font-semibold rounded-lg hover:bg-[#4de63e] transition-colors disabled:opacity-50"
+                            >
+                                <ArrowDownTrayIcon className="w-4 h-4" />
+                                {generating ? 'Generating...' : 'Download Certificate'}
                             </button>
                         )}
                     </div>
@@ -469,110 +711,284 @@ export default function CourseDetailsPage() {
                                             </a>
                                         )}
                                     </div>
+                                ) : currentLesson.type === 'assessment' ? (
+                                    <AssessmentView
+                                        lesson={currentLesson}
+                                        result={quizResults}
+                                        onSubmit={handleAssessmentSubmit}
+                                        onAppeal={() => setShowAppealModal(true)}
+                                    />
                                 ) : currentLesson.type === 'quiz' ? (
                                     <div className="p-6">
-                                        <div className="flex items-center gap-2 mb-6">
-                                            <QuestionMarkCircleIcon className="w-5 h-5 text-[#5f82f3]" />
-                                            <span className="text-sm text-[#888]">
-                                                {currentLesson.questions?.length || 0} questions
-                                            </span>
-                                            {quizSubmitted && (
-                                                <span className={`ml-auto px-2 py-1 rounded text-xs ${quizResults?.allCorrect
-                                                    ? 'bg-[#5dff4f]/10 text-[#5dff4f]'
-                                                    : 'bg-[#ff4848]/10 text-[#ff4848]'
-                                                    }`}>
-                                                    {quizResults?.score}/{currentLesson.questions?.length} correct
-                                                </span>
-                                            )}
-                                        </div>
+                                        {!quizStarted && !quizSubmitted && !previewMode ? (
+                                            // Start Screen
+                                            <div className="text-center py-6 px-4">
+                                                <div className="mb-6 flex justify-center">
+                                                    <div className="w-16 h-16 bg-[#5f82f3]/10 rounded-full flex items-center justify-center">
+                                                        <QuestionMarkCircleIcon className="w-10 h-10 text-[#5f82f3]" />
+                                                    </div>
+                                                </div>
+                                                <h3 className="text-xl font-bold text-[#e4e4ea] mb-2">{currentLesson.title}</h3>
 
-                                        {currentLesson.questions?.length > 0 ? (
-                                            <div className="space-y-6">
-                                                {currentLesson.questions.map((question, qIndex) => (
-                                                    <div key={qIndex} className="bg-[#1a1a1a] rounded-lg p-4">
-                                                        <p className="text-sm text-[#e4e4ea] mb-3">
-                                                            <span className="text-[#5f82f3] mr-2">Q{qIndex + 1}.</span>
-                                                            {question.question}
-                                                        </p>
-                                                        <div className="space-y-2">
-                                                            {question.options?.map((option, oIndex) => {
-                                                                const isSelected = quizAnswers[qIndex] === oIndex;
-                                                                const isCorrect = question.correctAnswer === oIndex;
-                                                                const showResult = quizSubmitted;
+                                                <div className="max-w-md mx-auto mb-8 text-left bg-amber-500/5 border border-amber-500/20 rounded-xl p-5">
+                                                    <div className="flex items-center gap-2 mb-3 text-amber-500 font-bold text-xs uppercase tracking-wider">
+                                                        <ExclamationTriangleIcon className="w-4 h-4" />
+                                                        Assessment Rules
+                                                    </div>
+                                                    <ul className="space-y-3">
+                                                        <li className="flex items-start gap-3">
+                                                            <div className="w-1.5 h-1.5 rounded-full bg-amber-500/50 mt-1.5 flex-shrink-0" />
+                                                            <div className="text-xs text-[#888]">
+                                                                <span className="text-[#e4e4ea] font-medium">Passing Criteria:</span> You must score at least <span className="text-amber-500 font-bold">{currentLesson.passingPercentage || 70}%</span> to pass this assessment.
+                                                            </div>
+                                                        </li>
+                                                        <li className="flex items-start gap-3">
+                                                            <div className="w-1.5 h-1.5 rounded-full bg-amber-500/50 mt-1.5 flex-shrink-0" />
+                                                            <div className="text-xs text-[#888]">
+                                                                <span className="text-[#e4e4ea] font-medium">Time Limit:</span> {currentLesson.timeLimit > 0 ? (
+                                                                    <span>You have <span className="text-amber-500 font-bold">{currentLesson.timeLimit} minutes</span> to complete all {currentLesson.questions?.length || 0} questions.</span>
+                                                                ) : (
+                                                                    <span>No time limit for this assessment.</span>
+                                                                )}
+                                                            </div>
+                                                        </li>
+                                                        <li className="flex items-start gap-3">
+                                                            <div className="w-1.5 h-1.5 rounded-full bg-amber-500/50 mt-1.5 flex-shrink-0" />
+                                                            <div className="text-xs text-[#888]">
+                                                                <span className="text-[#e4e4ea] font-medium">Attempts:</span> {currentLesson.maxAttempts > 0 ? (
+                                                                    <span>Max <span className="text-amber-500 font-bold">{currentLesson.maxAttempts} attempts</span> allowed. {quizResults?.attemptsLeft !== undefined ? (
+                                                                        <span>You have <span className="text-amber-500 font-bold">{quizResults.attemptsLeft}</span> remaining.</span>
+                                                                    ) : (
+                                                                        <span>Ensure you are ready before starting.</span>
+                                                                    )}</span>
+                                                                ) : (
+                                                                    <span>Unlimited attempts allowed. Take your time to learn.</span>
+                                                                )}
+                                                            </div>
+                                                        </li>
+                                                    </ul>
+                                                </div>
 
-                                                                let optionClass = 'border-[#2a2a2a] hover:border-[#5f82f3]/30';
-                                                                if (isSelected && !showResult) {
-                                                                    optionClass = 'border-[#5f82f3] bg-primary/10';
-                                                                } else if (showResult && isCorrect) {
-                                                                    optionClass = 'border-[#5dff4f] bg-[#5dff4f]/10';
-                                                                } else if (showResult && isSelected && !isCorrect) {
-                                                                    optionClass = 'border-[#ff4848] bg-[#ff4848]/10';
-                                                                }
-
-                                                                return (
-                                                                    <button
-                                                                        key={oIndex}
-                                                                        onClick={() => handleQuizAnswer(qIndex, oIndex)}
-                                                                        disabled={quizSubmitted || isLessonCompleted}
-                                                                        className={`w-full text-left p-3 rounded-lg border transition-colors ${optionClass} ${quizSubmitted ? 'cursor-default' : ''}`}
-                                                                    >
-                                                                        <div className="flex items-center gap-3">
-                                                                            <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${isSelected ? 'border-[#5f82f3]' : 'border-[#666]'}`}>
-                                                                                {isSelected && <div className="w-2 h-2 rounded-full bg-primary" />}
-                                                                            </div>
-                                                                            <span className="text-sm text-[#e4e4ea]">{option}</span>
-                                                                            {showResult && isCorrect && (
-                                                                                <CheckCircleSolid className="w-4 h-4 text-[#5dff4f] ml-auto" />
-                                                                            )}
-                                                                        </div>
-                                                                    </button>
-                                                                );
-                                                            })}
+                                                <div className="flex justify-center gap-4">
+                                                    {!course.isEnrolled ? (
+                                                        <div className="flex flex-col items-center gap-3">
+                                                            <p className="text-xs text-[#666]">You must enroll in this course to take the assessment.</p>
+                                                            <button
+                                                                onClick={handleEnroll}
+                                                                className="px-8 py-3 bg-[#5dff4f] text-[#0e0e0e] text-sm font-bold rounded-lg hover:bg-[#4de63e] transition-all transform hover:scale-105 shadow-lg shadow-[#5dff4f]/20"
+                                                            >
+                                                                Enroll Now to Start
+                                                            </button>
                                                         </div>
-                                                    </div>
-                                                ))}
-
-                                                {/* Quiz Submit Button */}
-                                                {!isLessonCompleted && !quizSubmitted && (
+                                                    ) : (
+                                                        <>
+                                                            {(canEdit || user?.role === 'admin' || user?.role === 'super_admin') && (
+                                                                <button
+                                                                    onClick={() => setPreviewMode(true)}
+                                                                    className="px-6 py-2 bg-[#1a1a1a] border border-[#2a2a2a] text-[#888] rounded-lg font-medium hover:text-[#e4e4ea] hover:border-[#444] transition-colors"
+                                                                >
+                                                                    Preview Mode
+                                                                </button>
+                                                            )}
+                                                            <button
+                                                                onClick={startQuiz}
+                                                                disabled={(isLessonCompleted && !currentLesson?.maxAttempts) || (currentLesson.maxAttempts > 0 && quizResults?.attemptsLeft === 0)}
+                                                                className="px-8 py-3 bg-[#5f82f3] text-white rounded-lg text-sm font-bold hover:bg-[#4a6fd3] transition-all transform hover:scale-105 shadow-xl shadow-[#5f82f3]/20 disabled:opacity-50 disabled:scale-100"
+                                                            >
+                                                                {isLessonCompleted ? 'Retake Quiz' : 'I Understand, Start Quiz'}
+                                                            </button>
+                                                        </>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        ) : previewMode ? (
+                                            // Preview Mode
+                                            <div>
+                                                <div className="flex items-center justify-between mb-6 border-b border-[#2a2a2a] pb-4">
+                                                    <span className="text-sm text-[#888] font-medium uppercase tracking-wider">Preview Mode</span>
                                                     <button
-                                                        onClick={handleQuizSubmit}
-                                                        disabled={Object.keys(quizAnswers).length !== currentLesson.questions?.length}
-                                                        className="w-full py-3 bg-primary text-black rounded-lg text-sm font-medium hover:bg-[#4a6fd3] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                                        onClick={() => setPreviewMode(false)}
+                                                        className="text-sm text-[#e4e4ea] hover:text-white"
                                                     >
-                                                        Submit Quiz
+                                                        Exit Preview
                                                     </button>
-                                                )}
-
-                                                {/* Quiz Result Message */}
-                                                {quizSubmitted && !quizResults?.allCorrect && (
-                                                    <div className="p-4 bg-[#ff4848]/10 border border-[#ff4848]/30 rounded-lg">
-                                                        <p className="text-sm text-[#ff4848]">
-                                                            Some answers are incorrect. Review the correct answers above and try again.
-                                                        </p>
-                                                        <button
-                                                            onClick={() => {
-                                                                setQuizAnswers({});
-                                                                setQuizSubmitted(false);
-                                                                setQuizResults(null);
-                                                            }}
-                                                            className="mt-2 text-sm text-[#5f82f3] hover:underline"
-                                                        >
-                                                            Retry Quiz
-                                                        </button>
+                                                </div>
+                                                <div className="space-y-8">
+                                                    {currentLesson.questions.map((question, qIndex) => (
+                                                        <div key={qIndex} className="bg-[#1a1a1a] rounded-lg p-4 border border-[#2a2a2a]">
+                                                            <p className="text-base text-[#e4e4ea] mb-4 font-medium">
+                                                                <span className="text-[#5f82f3] mr-2">Q{qIndex + 1}.</span>
+                                                                {question.question}
+                                                            </p>
+                                                            <div className="space-y-2">
+                                                                {question.options?.map((option, oIndex) => {
+                                                                    const isCorrect = question.correctAnswer === oIndex;
+                                                                    return (
+                                                                        <div
+                                                                            key={oIndex}
+                                                                            className={`w-full text-left p-3 rounded-lg border transition-colors flex items-center gap-3 ${isCorrect
+                                                                                ? 'border-[#5dff4f] bg-[#5dff4f]/10 text-[#5dff4f]'
+                                                                                : 'border-[#2a2a2a] text-[#888]'
+                                                                                }`}
+                                                                        >
+                                                                            <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${isCorrect ? 'border-[#5dff4f]' : 'border-[#666]'}`}>
+                                                                                {isCorrect && <div className="w-2 h-2 rounded-full bg-[#5dff4f]" />}
+                                                                            </div>
+                                                                            <span>{option}</span>
+                                                                            {isCorrect && <span className="ml-auto text-xs font-semibold uppercase">Correct Answer</span>}
+                                                                        </div>
+                                                                    );
+                                                                })}
+                                                            </div>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        ) : quizSubmitted ? (
+                                            // Result Screen
+                                            <div className="text-center py-8">
+                                                {quizResults?.passed ? (
+                                                    <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-[#5dff4f]/10 mb-4">
+                                                        <CheckCircleSolid className="w-10 h-10 text-[#5dff4f]" />
+                                                    </div>
+                                                ) : (
+                                                    <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-[#ff4848]/10 mb-4">
+                                                        <ExclamationTriangleIcon className="w-10 h-10 text-[#ff4848]" />
                                                     </div>
                                                 )}
 
-                                                {quizSubmitted && quizResults?.allCorrect && (
-                                                    <div className="p-4 bg-[#5dff4f]/10 border border-[#5dff4f]/30 rounded-lg">
-                                                        <p className="text-sm text-[#5dff4f]">
-                                                            Congratulations! All answers are correct. Lesson marked as complete.
-                                                        </p>
+                                                <h3 className="text-xl font-bold text-[#e4e4ea] mb-2">
+                                                    {quizResults?.passed ? 'Assessment Passed!' : 'Assessment Failed'}
+                                                </h3>
+                                                <div className="flex flex-col items-center gap-1 mb-6">
+                                                    <div className="text-3xl font-black text-[#e4e4ea]">
+                                                        {quizResults?.percentage}%
                                                     </div>
-                                                )}
+                                                    <p className="text-sm text-[#666]">
+                                                        You got <span className="text-[#5dff4f] font-bold">{quizResults?.score}</span> correct out of <span className="text-[#e4e4ea] font-medium">{quizResults?.totalPoints}</span> questions
+                                                    </p>
+                                                </div>
+
+                                                <div className="flex flex-col items-center gap-4">
+                                                    <div className="flex justify-center gap-3">
+                                                        {(quizResults?.passed || (quizResults?.attemptsLeft > 0 || quizResults?.attemptsLeft === null)) && (
+                                                            <button
+                                                                onClick={startQuiz}
+                                                                className="px-4 py-2 bg-[#1a1a1a] border border-[#2a2a2a] text-[#e4e4ea] rounded-lg hover:border-[#5f82f3] transition-colors"
+                                                            >
+                                                                Retry Quiz
+                                                            </button>
+                                                        )}
+                                                        {isLessonCompleted && (
+                                                            <button
+                                                                onClick={() => {
+                                                                    if (activeLesson < (currentModule?.lessons?.length || 0) - 1) {
+                                                                        setActiveLesson(activeLesson + 1);
+                                                                    } else if (activeModule < (course.modules?.length || 0) - 1) {
+                                                                        setActiveModule(activeModule + 1);
+                                                                        setActiveLesson(0);
+                                                                    }
+                                                                }}
+                                                                className="px-4 py-2 bg-[#5f82f3] text-white rounded-lg hover:bg-[#4a6fd3] transition-colors"
+                                                            >
+                                                                Next Lesson
+                                                            </button>
+                                                        )}
+                                                    </div>
+
+                                                    {!quizResults?.passed && quizResults?.attemptsLeft === 0 && (
+                                                        <div className="mt-4 p-4 bg-[#ff4848]/10 border border-[#ff4848]/20 rounded-xl max-w-md">
+                                                            <p className="text-xs text-[#ff4848] mb-3">
+                                                                You have exhausted all attempts for this assessment.
+                                                                {quizResults?.appealStatus === 'none' ? 'You can appeal to your instructor for extra attempts.' :
+                                                                    quizResults?.appealStatus === 'pending' ? 'Your appeal is currently under review.' :
+                                                                        quizResults?.appealStatus === 'rejected' ? 'Your appeal was rejected. You may continue the course but this assessment remains failed.' :
+                                                                            'Your appeal was approved! You can now retry.'}
+                                                            </p>
+                                                            {quizResults?.appealStatus === 'none' && (
+                                                                <button
+                                                                    onClick={() => setShowAppealModal(true)}
+                                                                    className="w-full py-2 bg-[#ff4848] text-white text-xs font-bold rounded-lg hover:bg-[#e43e3e] transition-colors"
+                                                                >
+                                                                    Submit Appeal for More Attempts
+                                                                </button>
+                                                            )}
+                                                            {quizResults?.appealStatus === 'rejected' && (
+                                                                <button
+                                                                    onClick={() => {
+                                                                        if (activeLesson < (currentModule?.lessons?.length || 0) - 1) {
+                                                                            setActiveLesson(activeLesson + 1);
+                                                                        } else if (activeModule < (course.modules?.length || 0) - 1) {
+                                                                            setActiveModule(activeModule + 1);
+                                                                            setActiveLesson(0);
+                                                                        }
+                                                                    }}
+                                                                    className="w-full py-2 bg-[#2a2a2a] text-[#888] text-xs font-bold rounded-lg hover:bg-[#333] transition-colors"
+                                                                >
+                                                                    Continue Course anyway
+                                                                </button>
+                                                            )}
+                                                        </div>
+                                                    )}
+                                                </div>
                                             </div>
                                         ) : (
-                                            <div className="text-center py-8">
-                                                <p className="text-sm text-[#666]">No questions available for this quiz.</p>
+                                            // Active Quiz
+                                            <div>
+                                                <div className="flex items-center justify-between mb-6 border-b border-[#2a2a2a] pb-4">
+                                                    <span className="text-sm text-[#888]">
+                                                        {Object.keys(quizAnswers).length}/{currentLesson.questions?.length} Answered
+                                                    </span>
+                                                    {timeRemaining !== null && (
+                                                        <span className={`text-sm font-mono ${timeRemaining < 60 ? 'text-[#ff4848]' : 'text-[#5dff4f]'}`}>
+                                                            Time Left: {formatTime(timeRemaining)}
+                                                        </span>
+                                                    )}
+                                                </div>
+
+                                                <div className="space-y-8">
+                                                    {currentLesson.questions.map((question, qIndex) => (
+                                                        <div key={qIndex}>
+                                                            <p className="text-base text-[#e4e4ea] mb-4 font-medium">
+                                                                <span className="text-[#5f82f3] mr-2">{qIndex + 1}.</span>
+                                                                {question.question}
+                                                            </p>
+                                                            <div className="space-y-2 pl-6">
+                                                                {question.options?.map((option, oIndex) => {
+                                                                    const isSelected = quizAnswers[qIndex] === oIndex;
+                                                                    return (
+                                                                        <button
+                                                                            key={oIndex}
+                                                                            onClick={() => handleQuizAnswer(qIndex, oIndex)}
+                                                                            className={`w-full text-left p-3 rounded-lg border transition-colors ${isSelected
+                                                                                ? 'border-[#5f82f3] bg-[#5f82f3]/10 text-white'
+                                                                                : 'border-[#2a2a2a] text-[#888] hover:border-[#444]'
+                                                                                }`}
+                                                                        >
+                                                                            <div className="flex items-center gap-3">
+                                                                                <div className={`w-4 h-4 rounded-full border flex items-center justify-center ${isSelected ? 'border-[#5f82f3]' : 'border-[#666]'
+                                                                                    }`}>
+                                                                                    {isSelected && <div className="w-2 h-2 rounded-full bg-[#5f82f3]" />}
+                                                                                </div>
+                                                                                <span>{option}</span>
+                                                                            </div>
+                                                                        </button>
+                                                                    );
+                                                                })}
+                                                            </div>
+                                                        </div>
+                                                    ))}
+                                                </div>
+
+                                                <div className="mt-10 pt-6 border-t border-[#2a2a2a]">
+                                                    <button
+                                                        onClick={handleQuizSubmit}
+                                                        disabled={Object.keys(quizAnswers).length !== currentLesson.questions?.length || loading}
+                                                        className="w-full py-4 bg-[#5f82f3] text-white rounded-lg font-bold hover:bg-[#4a6fd3] transition-all disabled:opacity-50 shadow-lg shadow-[#5f82f3]/20"
+                                                    >
+                                                        {loading ? 'Submitting...' : 'Submit Assessment'}
+                                                    </button>
+                                                </div>
                                             </div>
                                         )}
                                     </div>
@@ -718,6 +1134,135 @@ export default function CourseDetailsPage() {
                     </div>
                 </DialogContent>
             </Dialog>
+            {/* Appeal Modal */}
+            <Dialog open={showAppealModal} onClose={() => setShowAppealModal(false)}>
+                <DialogContent className="max-w-md bg-[#0e0e0e] border border-[#2a2a2a] text-[#e4e4ea] shadow-2xl">
+                    <DialogTitle className="text-[#e4e4ea]">Appeal for Extra Attempts</DialogTitle>
+                    <div className="p-4">
+                        <p className="text-xs text-[#888] mb-4">
+                            Briefly explain why you need more attempts for this assessment. Your instructor will review your request.
+                        </p>
+                        <textarea
+                            value={appealReason}
+                            onChange={(e) => setAppealReason(e.target.value)}
+                            className="w-full p-3 bg-[#0e0e0e] border border-[#2a2a2a] rounded-lg text-sm text-[#e4e4ea] focus:outline-none focus:border-[#5f82f3] mb-4"
+                            placeholder="Reason for appeal..."
+                            rows={4}
+                        />
+                        <div className="flex gap-3">
+                            <button
+                                onClick={() => setShowAppealModal(false)}
+                                className="flex-1 py-2 bg-[#2a2a2a] text-[#888] text-sm font-medium rounded-lg hover:bg-[#333]"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={handleAppealSubmit}
+                                disabled={submittingAppeal || !appealReason.trim()}
+                                className="flex-1 py-2 bg-[#5f82f3] text-white text-sm font-medium rounded-lg hover:bg-[#4a6fd3] disabled:opacity-50"
+                            >
+                                {submittingAppeal ? 'Submitting...' : 'Submit Appeal'}
+                            </button>
+                        </div>
+                    </div>
+                </DialogContent>
+            </Dialog>
         </DashboardLayout>
     );
 }
+
+function AssessmentView({ lesson, result, onSubmit, onAppeal }) {
+    const [file, setFile] = useState(null);
+    const [error, setError] = useState('');
+    const [submitting, setSubmitting] = useState(false);
+
+    const handleFileChange = (e) => {
+        const selectedFile = e.target.files[0];
+        setError('');
+        if (!selectedFile) return;
+        if (selectedFile.type !== 'application/pdf') {
+            setError('Please upload a PDF file.');
+            return;
+        }
+        if (selectedFile.size > 2 * 1024 * 1024) {
+            setError('File size must be under 2MB.');
+            return;
+        }
+        setFile(selectedFile);
+    };
+
+    const handleUpload = async () => {
+        if (!file) return;
+        setSubmitting(true);
+        try {
+            const reader = new FileReader();
+            reader.readAsDataURL(file);
+            reader.onload = async () => {
+                await onSubmit(reader.result);
+                setFile(null);
+                setSubmitting(false);
+            };
+        } catch (err) {
+            setError('Upload failed. Please try again.');
+            setSubmitting(false);
+        }
+    };
+
+    const isSubmitted = result && result.status !== 'approved_for_resubmission';
+
+    return (
+        <div className="p-8 max-w-xl mx-auto">
+            {isSubmitted ? (
+                <div className="text-center py-12 bg-[#1a1a1a] border border-[#2a2a2a] rounded-2xl shadow-xl">
+                    <CheckCircleIcon className="w-12 h-12 text-[#5dff4f] mx-auto mb-4" />
+                    <h3 className="text-xl font-bold text-[#e4e4ea] mb-1">Success!</h3>
+                    <p className="text-[10px] text-[#666] font-black uppercase tracking-[0.2em] mb-6">Assessment has been submitted</p>
+                    {result.status === 'graded' || result.status === 'passed' || result.status === 'failed' ? (
+                        <div className="mt-6 pt-6 border-t border-[#2a2a2a] px-8">
+                            <div className="text-4xl font-black text-[#e4e4ea] mb-2">{result.percentage}%</div>
+                            <p className="text-[10px] text-[#5f82f3] font-black uppercase tracking-widest mb-4">Final Grade</p>
+                            {result.feedback && (
+                                <div className="p-4 bg-black/40 rounded-xl border border-[#2a2a2a]">
+                                    <p className="text-xs text-[#888] italic leading-relaxed">"{result.feedback}"</p>
+                                </div>
+                            )}
+                        </div>
+                    ) : (
+                        <div className="bg-amber-500/5 border border-amber-500/10 p-4 rounded-xl mx-8">
+                            <p className="text-[10px] text-amber-500 font-bold uppercase tracking-widest">Under Evaluation</p>
+                        </div>
+                    )}
+                </div>
+            ) : (
+                <div className="space-y-6">
+                    <div className={`relative border-2 border-dashed rounded-2xl p-12 flex flex-col items-center gap-4 transition-all group ${file ? 'border-[#5f82f3] bg-[#5f82f3]/5' : 'border-[#2a2a2a] hover:border-[#444] bg-black/20'}`}>
+                        <input
+                            type="file"
+                            accept=".pdf"
+                            title=""
+                            onChange={handleFileChange}
+                            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-20"
+                        />
+                        <CloudArrowUpIcon className={`w-12 h-12 transition-all duration-300 ${file ? 'text-[#5f82f3] scale-110' : 'text-[#333] group-hover:text-[#444]'}`} />
+                        <div className="text-center">
+                            <p className="text-sm text-[#e4e4ea] font-bold tracking-tight">{file ? file.name : 'Choose or Drop PDF'}</p>
+                            <p className="text-[10px] text-[#666] mt-1.5 font-bold uppercase tracking-[0.1em]">Max PDF size 2MB</p>
+                        </div>
+                    </div>
+                    {error && <p className="text-[10px] text-[#ff4848] text-center font-bold uppercase tracking-widest bg-[#ff4848]/5 py-2 rounded-lg">{error}</p>}
+                    <button
+                        onClick={handleUpload}
+                        disabled={!file || submitting}
+                        className="w-full py-4 bg-[#5f82f3] text-[#0e0e0e] text-[10px] font-black uppercase tracking-[0.2em] rounded-xl hover:bg-white hover:shadow-2xl transition-all disabled:opacity-30"
+                    >
+                        {submitting ? 'Submitting...' : 'Complete Assessment'}
+                    </button>
+                </div>
+            )}
+        </div>
+    );
+}
+
+
+
+
