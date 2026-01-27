@@ -28,7 +28,7 @@ const LessonSchema = new mongoose.Schema({
     },
     type: {
         type: String,
-        enum: ['video', 'document', 'link', 'text', 'quiz'],
+        enum: ['video', 'document', 'link', 'text', 'quiz', 'assessment'],
         default: 'text'
     },
     content: {
@@ -38,6 +38,20 @@ const LessonSchema = new mongoose.Schema({
     duration: {
         type: Number, // in minutes
         default: 0
+    },
+    passingPercentage: {
+        type: Number,
+        default: 70,
+        min: 0,
+        max: 100
+    },
+    maxAttempts: {
+        type: Number,
+        default: 0 // 0 means unlimited
+    },
+    timeLimit: {
+        type: Number,
+        default: 0 // in minutes, 0 means no limit
     },
     order: {
         type: Number,
@@ -85,7 +99,62 @@ const EnrollmentSchema = new mongoose.Schema({
     certificateIssued: {
         type: Boolean,
         default: false
-    }
+    },
+    quizResults: [{
+        lessonId: String,
+        attempts: [{
+            score: Number,
+            totalPoints: Number,
+            percentage: Number,
+            passed: Boolean,
+            date: { type: Date, default: Date.now }
+        }],
+        bestScore: {
+            type: Number,
+            default: 0
+        },
+        isPassed: {
+            type: Boolean,
+            default: false
+        },
+        appeal: {
+            status: {
+                type: String,
+                enum: ['none', 'pending', 'approved', 'rejected'],
+                default: 'none'
+            },
+            reason: String,
+            date: { type: Date },
+            reviewedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+            reviewedAt: Date,
+            comment: String
+        }
+    }],
+    assessmentResults: [{
+        lessonId: String,
+        submissionFile: String, // Base64 PDF
+        submissionDate: { type: Date, default: Date.now },
+        score: Number,
+        isPassed: { type: Boolean, default: false },
+        feedback: String,
+        status: {
+            type: String,
+            enum: ['submitted', 'graded', 'failed', 'passed'],
+            default: 'submitted'
+        },
+        appeal: {
+            status: {
+                type: String,
+                enum: ['none', 'pending', 'approved', 'rejected'],
+                default: 'none'
+            },
+            reason: String,
+            date: { type: Date },
+            reviewedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+            reviewedAt: Date,
+            comment: String
+        }
+    }]
 });
 
 const CourseSchema = new mongoose.Schema({

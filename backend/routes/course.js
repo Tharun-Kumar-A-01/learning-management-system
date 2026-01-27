@@ -54,6 +54,24 @@ router.get('/', protect, async (req, res) => {
             courseObj.isEnrolled = !!enrollment;
             courseObj.progress = enrollment ? enrollment.progress : 0;
 
+            // Hide sensitive content for non-enrolled/non-owners
+            const canSeeSensitive = courseObj.isEnrolled ||
+                ['admin', 'super_admin'].includes(req.user.role) ||
+                course.createdBy?._id?.toString() === req.user.id ||
+                course.createdBy?.toString() === req.user.id;
+
+            if (!canSeeSensitive && courseObj.modules) {
+                courseObj.modules = courseObj.modules.map(module => ({
+                    ...module,
+                    lessons: (module.lessons || []).map(lesson => {
+                        const l = { ...lesson };
+                        if (l.type === 'quiz') delete l.questions;
+                        else delete l.content; // Also mask content for other lessons for safety
+                        return l;
+                    })
+                }));
+            }
+
             // Include enrollments for trainers/admins, remove for learners
             if (req.user.role !== 'trainer' && req.user.role !== 'admin' && req.user.role !== 'super_admin') {
                 delete courseObj.enrollments;
@@ -117,10 +135,24 @@ router.get('/:id', protect, async (req, res) => {
         courseObj.isEnrolled = !!enrollment;
         courseObj.progress = enrollment ? enrollment.progress : 0;
         courseObj.completedLessons = enrollment ? enrollment.completedLessons : [];
+        courseObj.quizResults = enrollment ? enrollment.quizResults : [];
 
-        // Only include full enrollment data for trainers/admins
-        if (req.user.role !== 'trainer' && req.user.role !== 'admin' && req.user.role !== 'super_admin') {
-            delete courseObj.enrollments;
+        // Hide sensitive content for non-enrolled/non-owners
+        const canSeeSensitive = courseObj.isEnrolled ||
+            ['admin', 'super_admin'].includes(req.user.role) ||
+            course.createdBy?._id?.toString() === req.user.id ||
+            course.createdBy?.toString() === req.user.id;
+
+        if (!canSeeSensitive && courseObj.modules) {
+            courseObj.modules = courseObj.modules.map(module => ({
+                ...module,
+                lessons: (module.lessons || []).map(lesson => {
+                    const l = { ...lesson };
+                    if (l.type === 'quiz') delete l.questions;
+                    else delete l.content;
+                    return l;
+                })
+            }));
         }
 
         res.status(200).json({ success: true, data: courseObj });
@@ -300,10 +332,527 @@ router.put('/:id/progress', protect, async (req, res) => {
             enrollment.completed = true;
             enrollment.completedAt = new Date();
         }
+        if (enrollment.progress >= 100) {
+            enrollment.completed = true;
+            enrollment.completedAt = new Date();
+        }
 
         await course.save();
 
         res.status(200).json({ success: true, data: enrollment });
+    } catch (err) {
+        res.status(500).json({ success: false, message: err.message });
+    }
+});
+
+// @desc    Submit quiz attempt
+// @route   POST /api/courses/:id/quiz/:lessonId/submit
+// @access  Private
+router.post('/:id/quiz/:lessonId/submit', protect, async (req, res) => {
+    try {
+        const { answers } = req.body;
+        const lessonId = req.params.lessonId;
+
+        const course = await Course.findById(req.params.id);
+        if (!course) {
+            return res.status(404).json({ success: false, message: 'Course not found' });
+        }
+
+        const enrollment = course.enrollments.find(e => e.userId.toString() === req.user.id);
+        if (!enrollment) {
+            return res.status(400).json({ success: false, message: 'Not enrolled in this course' });
+        }
+
+        // Find module index and lesson index
+        let targetLesson;
+        course.modules.some(m => {
+            const found = m.lessons.find(l => l._id.toString() === lessonId);
+            if (found) {
+                targetLesson = found;
+                return true;
+            }
+            return false;
+        });
+
+        if (!targetLesson || targetLesson.type !== 'quiz') {
+            return res.status(404).json({ success: false, message: 'Quiz lesson not found' });
+        }
+
+        // Check attempts
+        let quizResult = enrollment.quizResults.find(r => r.lessonId === lessonId);
+        if (!quizResult) {
+            enrollment.quizResults.push({ lessonId, attempts: [], bestScore: 0, isPassed: false });
+            quizResult = enrollment.quizResults[enrollment.quizResults.length - 1];
+        }
+
+        let maxAllowed = targetLesson.maxAttempts || 0;
+        // If appeal is approved, add 3 attempts
+        if (quizResult.appeal?.status === 'approved') {
+            maxAllowed += 3;
+        }
+
+        if (maxAllowed > 0 && quizResult.attempts.length >= maxAllowed) {
+            return res.status(400).json({ success: false, message: 'Max attempts reached for this quiz' });
+        }
+
+        // Calculate Score
+        let score = 0;
+        let totalPoints = 0;
+
+        targetLesson.questions.forEach((q, index) => {
+            totalPoints += q.points || 1;
+            const userAnswer = answers[index];
+            if (userAnswer !== undefined && parseInt(userAnswer) === q.correctAnswer) {
+                score += q.points || 1;
+            }
+        });
+
+        const percentage = totalPoints > 0 ? (score / totalPoints) * 100 : 0;
+        const passed = percentage >= (targetLesson.passingPercentage || 70);
+
+        // Record Attempt
+        quizResult.attempts.push({
+            score,
+            totalPoints,
+            percentage,
+            passed
+        });
+
+        // Update Best Score
+        if (percentage > quizResult.bestScore) {
+            quizResult.bestScore = percentage;
+        }
+
+        // Update Passed Status (if passed once, stays passed)
+        if (passed) {
+            quizResult.isPassed = true;
+            if (!enrollment.completedLessons.includes(lessonId)) {
+                enrollment.completedLessons.push(lessonId);
+            }
+        }
+
+        // Update Enrollment Progress
+        const totalLessons = course.modules.reduce((acc, m) => acc + m.lessons.length, 0);
+        if (totalLessons > 0) {
+            enrollment.progress = Math.round((enrollment.completedLessons.length / totalLessons) * 100);
+        }
+
+        if (enrollment.progress >= 100) {
+            enrollment.completed = true;
+            enrollment.completedAt = new Date();
+        }
+
+        await course.save();
+
+        res.status(200).json({
+            success: true,
+            data: {
+                passed,
+                score,
+                totalPoints,
+                percentage,
+                attemptsLeft: targetLesson.maxAttempts > 0 ? Math.max(0, targetLesson.maxAttempts - quizResult.attempts.length) : null,
+                bestScore: quizResult.bestScore,
+                attempts: quizResult.attempts.length,
+                isCompleted: enrollment.completed,
+                appealStatus: quizResult.appeal?.status || 'none'
+            }
+        });
+
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ success: false, message: err.message });
+    }
+});
+
+// @desc    Appeal for extra quiz attempts
+// @route   POST /api/courses/:id/quiz/:lessonId/appeal
+// @access  Private (Learner)
+router.post('/:id/quiz/:lessonId/appeal', protect, authorize('learner'), async (req, res) => {
+    try {
+        const { reason } = req.body;
+        const lessonId = req.params.lessonId;
+
+        const course = await Course.findById(req.params.id);
+        if (!course) return res.status(404).json({ success: false, message: 'Course not found' });
+
+        const enrollment = course.enrollments.find(e => e.userId.toString() === req.user.id);
+        if (!enrollment) return res.status(400).json({ success: false, message: 'Not enrolled' });
+
+        const quizResult = enrollment.quizResults.find(r => r.lessonId === lessonId);
+        if (!quizResult) return res.status(404).json({ success: false, message: 'Quiz not found' });
+
+        // Ensure status is none or rejected before allow new appeal
+        if (quizResult.appeal && quizResult.appeal.status === 'pending') {
+            return res.status(400).json({ success: false, message: 'Appeal already pending' });
+        }
+
+        quizResult.appeal = {
+            status: 'pending',
+            reason,
+            date: new Date()
+        };
+
+        await course.save();
+        res.json({ success: true, data: quizResult.appeal });
+    } catch (err) {
+        res.status(500).json({ success: false, message: err.message });
+    }
+});
+
+// @desc    Get all quiz appeals for trainer/admin
+// @route   GET /api/courses/appeals/all
+// @access  Private (Trainer, Admin, Super Admin)
+router.get('/appeals/manage', protect, authorize('trainer', 'admin', 'super_admin'), async (req, res) => {
+    try {
+        let query = {};
+        if (req.user.role === 'trainer') {
+            query.createdBy = req.user.id;
+        }
+
+        const courses = await Course.find(query).populate('enrollments.userId', 'name email');
+
+        const appeals = [];
+        courses.forEach(course => {
+            course.enrollments.forEach(enrollment => {
+                enrollment.quizResults.forEach(qr => {
+                    if (qr.appeal && qr.appeal.status !== 'none') {
+                        appeals.push({
+                            courseId: course._id,
+                            courseTitle: course.title,
+                            userId: enrollment.userId._id,
+                            userName: enrollment.userId.name,
+                            userEmail: enrollment.userId.email,
+                            lessonId: qr.lessonId,
+                            appeal: qr.appeal,
+                            bestScore: qr.bestScore,
+                            attempts: qr.attempts.length,
+                            type: 'quiz'
+                        });
+                    }
+                });
+
+                enrollment.assessmentResults?.forEach(ar => {
+                    if (ar.appeal && ar.appeal.status !== 'none') {
+                        appeals.push({
+                            courseId: course._id,
+                            courseTitle: course.title,
+                            userId: enrollment.userId._id,
+                            userName: enrollment.userId.name,
+                            userEmail: enrollment.userId.email,
+                            lessonId: ar.lessonId,
+                            appeal: ar.appeal,
+                            score: ar.score,
+                            submissionFile: ar.submissionFile,
+                            type: 'assessment'
+                        });
+                    }
+                });
+            });
+        });
+
+        res.json({ success: true, data: appeals });
+    } catch (err) {
+        res.status(500).json({ success: false, message: err.message });
+    }
+});
+
+// @desc    Action a quiz appeal
+// @route   PUT /api/courses/:id/quiz/:lessonId/appeal/:userId
+// @access  Private (Trainer/Admin)
+router.put('/:id/quiz/:lessonId/appeal/:userId', protect, authorize('trainer', 'admin', 'super_admin'), async (req, res) => {
+    try {
+        const { status, comment } = req.body;
+        const { id, lessonId, userId } = req.params;
+
+        const course = await Course.findById(id);
+        if (!course) return res.status(404).json({ success: false, message: 'Course not found' });
+
+        // Check ownership
+        if (req.user.role === 'trainer' && course.createdBy.toString() !== req.user.id) {
+            return res.status(403).json({ success: false, message: 'Unauthorized' });
+        }
+
+        const enrollment = course.enrollments.find(e => e.userId.toString() === userId);
+        if (!enrollment) return res.status(404).json({ success: false, message: 'Enrollment not found' });
+
+        const quizResult = enrollment.quizResults.find(r => r.lessonId === lessonId);
+        if (!quizResult) return res.status(404).json({ success: false, message: 'Quiz Result not found' });
+
+        quizResult.appeal.status = status;
+        quizResult.appeal.comment = comment;
+        quizResult.appeal.reviewedBy = req.user.id;
+        quizResult.appeal.reviewedAt = new Date();
+
+        // If approved, effectively "reset" or extend attempts?
+        // User said: "when appeal is approved the learner gains 3 more attempts"
+        // But how do we track this? Maybe we just need to know they ARE granted extra.
+        // Let's modify the Lesson schema or track it in quizResult.
+        // Actually, let's just use a counter or something.
+        // For simplicity, let's add `extraAttempts` to quizResult in the model if needed.
+        // Re-read: "gains 3 more attempts".
+        // Let's stick to modifying the logic in the submit route to check for "approved appeal".
+
+        await course.save();
+        res.json({ success: true, data: quizResult.appeal });
+    } catch (err) {
+        res.status(500).json({ success: false, message: err.message });
+    }
+});
+
+// @desc    Get user's own appeals
+// @route   GET /api/courses/my-appeals
+// @access  Private (Learner)
+router.get('/appeals/my', protect, authorize('learner'), async (req, res) => {
+    try {
+        const courses = await Course.find({ 'enrollments.userId': req.user.id });
+        const appeals = [];
+        courses.forEach(course => {
+            const enrollment = course.enrollments.find(e => e.userId.toString() === req.user.id);
+            enrollment.quizResults.forEach(qr => {
+                if (qr.appeal && qr.appeal.status !== 'none') {
+                    appeals.push({
+                        courseId: course._id,
+                        courseTitle: course.title,
+                        lessonId: qr.lessonId,
+                        appeal: qr.appeal,
+                        bestScore: qr.bestScore,
+                        attempts: qr.attempts?.length || 0,
+                        type: 'quiz'
+                    });
+                }
+            });
+
+            // Add assessment appeals
+            enrollment.assessmentResults.forEach(ar => {
+                if (ar.appeal && ar.appeal.status !== 'none') {
+                    appeals.push({
+                        courseId: course._id,
+                        courseTitle: course.title,
+                        lessonId: ar.lessonId,
+                        appeal: ar.appeal,
+                        score: ar.score,
+                        type: 'assessment'
+                    });
+                }
+            });
+        });
+        res.json({ success: true, data: appeals });
+    } catch (err) {
+        res.status(500).json({ success: false, message: err.message });
+    }
+});
+
+// @desc    Submit assessment
+// @route   POST /api/courses/:id/assessment/:lessonId/submit
+// @access  Private (Learner)
+router.post('/:id/assessment/:lessonId/submit', protect, authorize('learner'), async (req, res) => {
+    try {
+        const { submissionFile } = req.body; // Base64 PDF
+        const lessonId = req.params.lessonId;
+
+        if (!submissionFile) {
+            return res.status(400).json({ success: false, message: 'Please provide a submission file' });
+        }
+
+        const course = await Course.findById(req.params.id);
+        if (!course) return res.status(404).json({ success: false, message: 'Course not found' });
+
+        const enrollment = course.enrollments.find(e => e.userId.toString() === req.user.id);
+        if (!enrollment) return res.status(400).json({ success: false, message: 'Not enrolled' });
+
+        let assessmentResult = enrollment.assessmentResults.find(r => r.lessonId === lessonId);
+        if (assessmentResult) {
+            // Strictly only one submission allowed unless an appeal was approved for resubmission
+            if (assessmentResult.status !== 'approved_for_resubmission' && assessmentResult.status !== 'failed') {
+                return res.status(400).json({ success: false, message: 'Assessment already submitted. Only one submission allowed.' });
+            }
+            assessmentResult.submissionFile = submissionFile;
+            assessmentResult.submissionDate = new Date();
+            assessmentResult.status = 'submitted';
+        } else {
+            enrollment.assessmentResults.push({
+                lessonId,
+                submissionFile,
+                status: 'submitted'
+            });
+        }
+
+        await course.save();
+        res.json({ success: true, message: 'Assessment submitted successfully' });
+    } catch (err) {
+        res.status(500).json({ success: false, message: err.message });
+    }
+});
+
+// @desc    Grade assessment
+// @route   PUT /api/courses/:id/assessment/:lessonId/grade/:userId
+// @access  Private (Trainer/Admin)
+router.put('/:id/assessment/:lessonId/grade/:userId', protect, authorize('trainer', 'admin', 'super_admin'), async (req, res) => {
+    try {
+        const { score, feedback } = req.body;
+        const { id, lessonId, userId } = req.params;
+
+        const course = await Course.findById(id);
+        if (!course) return res.status(404).json({ success: false, message: 'Course not found' });
+
+        // Check ownership
+        if (req.user.role === 'trainer' && course.createdBy.toString() !== req.user.id) {
+            return res.status(403).json({ success: false, message: 'Unauthorized' });
+        }
+
+        const enrollment = course.enrollments.find(e => e.userId.toString() === userId);
+        if (!enrollment) return res.status(404).json({ success: false, message: 'Enrollment not found' });
+
+        const assessmentResult = enrollment.assessmentResults.find(r => r.lessonId === lessonId);
+        if (!assessmentResult) return res.status(404).json({ success: false, message: 'Submission not found' });
+
+        // Get lesson to check passing score
+        let targetLesson = null;
+        course.modules.forEach(m => {
+            const l = m.lessons.find(l => l._id.toString() === lessonId);
+            if (l) targetLesson = l;
+        });
+
+        const passingPercentage = targetLesson?.passingPercentage || 70;
+        const isPassed = score >= passingPercentage;
+
+        assessmentResult.score = score;
+        assessmentResult.feedback = feedback;
+        assessmentResult.isPassed = isPassed;
+        assessmentResult.status = isPassed ? 'passed' : 'failed';
+
+        // If passed, mark lesson as complete
+        if (isPassed && !enrollment.completedLessons.includes(lessonId)) {
+            enrollment.completedLessons.push(lessonId);
+
+            // Mark course complete if all lessons done
+            let totalLessons = 0;
+            course.modules.forEach(m => totalLessons += m.lessons.length);
+            enrollment.progress = Math.round((enrollment.completedLessons.length / totalLessons) * 100);
+            if (enrollment.progress === 100) {
+                enrollment.completed = true;
+                enrollment.completedAt = new Date();
+            }
+        }
+
+        await course.save();
+        res.json({ success: true, data: assessmentResult });
+    } catch (err) {
+        res.status(500).json({ success: false, message: err.message });
+    }
+});
+
+// @desc    Appeal for failed assessment
+// @route   POST /api/courses/:id/assessment/:lessonId/appeal
+// @access  Private (Learner)
+router.post('/:id/assessment/:lessonId/appeal', protect, authorize('learner'), async (req, res) => {
+    try {
+        const { reason } = req.body;
+        const lessonId = req.params.lessonId;
+
+        const course = await Course.findById(req.params.id);
+        if (!course) return res.status(404).json({ success: false, message: 'Course not found' });
+
+        const enrollment = course.enrollments.find(e => e.userId.toString() === req.user.id);
+        if (!enrollment) return res.status(400).json({ success: false, message: 'Not enrolled' });
+
+        const assessmentResult = enrollment.assessmentResults.find(r => r.lessonId === lessonId);
+        if (!assessmentResult) return res.status(404).json({ success: false, message: 'Assessment submission not found' });
+
+        if (assessmentResult.status !== 'failed') {
+            return res.status(400).json({ success: false, message: 'Can only appeal failed assessments' });
+        }
+
+        if (assessmentResult.appeal && assessmentResult.appeal.status === 'pending') {
+            return res.status(400).json({ success: false, message: 'Appeal already pending' });
+        }
+
+        assessmentResult.appeal = {
+            status: 'pending',
+            reason,
+            date: new Date()
+        };
+
+        await course.save();
+        res.json({ success: true, data: assessmentResult.appeal });
+    } catch (err) {
+        res.status(500).json({ success: false, message: err.message });
+    }
+});
+
+// @desc    Admin/Trainer action on assessment appeal
+// @route   PUT /api/courses/:id/assessment/:lessonId/appeal/:userId
+// @access  Private (Trainer/Admin)
+router.put('/:id/assessment/:lessonId/appeal/:userId', protect, authorize('trainer', 'admin', 'super_admin'), async (req, res) => {
+    try {
+        const { status, comment } = req.body;
+        const { id, lessonId, userId } = req.params;
+
+        const course = await Course.findById(id);
+        if (!course) return res.status(404).json({ success: false, message: 'Course not found' });
+
+        if (req.user.role === 'trainer' && course.createdBy.toString() !== req.user.id) {
+            return res.status(403).json({ success: false, message: 'Unauthorized' });
+        }
+
+        const enrollment = course.enrollments.find(e => e.userId.toString() === userId);
+        if (!enrollment) return res.status(404).json({ success: false, message: 'Enrollment not found' });
+
+        const assessmentResult = enrollment.assessmentResults.find(r => r.lessonId === lessonId);
+        if (!assessmentResult) return res.status(404).json({ success: false, message: 'Assessment result not found' });
+
+        assessmentResult.appeal.status = status;
+        assessmentResult.appeal.comment = comment;
+        assessmentResult.appeal.reviewedBy = req.user.id;
+        assessmentResult.appeal.reviewedAt = new Date();
+
+        // If approved, maybe allow re-submission by changing status?
+        if (status === 'approved') {
+            assessmentResult.status = 'approved_for_resubmission';
+        }
+
+        await course.save();
+        res.json({ success: true, data: assessmentResult.appeal });
+    } catch (err) {
+        res.status(500).json({ success: false, message: err.message });
+    }
+});
+
+// @desc    Get all assessment submissions for management
+// @route   GET /api/courses/assessments/manage
+// @access  Private (Trainer/Admin)
+router.get('/assessments/manage', protect, authorize('trainer', 'admin', 'super_admin'), async (req, res) => {
+    try {
+        const courses = await Course.find(
+            req.user.role === 'trainer' ? { createdBy: req.user.id } : {}
+        ).populate('enrollments.userId', 'name email');
+
+        const allSubmissions = [];
+        courses.forEach(course => {
+            course.enrollments.forEach(enrollment => {
+                enrollment.assessmentResults.forEach(result => {
+                    allSubmissions.push({
+                        courseId: course._id,
+                        courseTitle: course.title,
+                        userId: enrollment.userId._id,
+                        userName: enrollment.userId.name,
+                        userEmail: enrollment.userId.email,
+                        lessonId: result.lessonId,
+                        submissionFile: result.submissionFile,
+                        score: result.score,
+                        status: result.status,
+                        feedback: result.feedback,
+                        date: result.submissionDate || result.date
+                    });
+                });
+            });
+        });
+
+        // Sort by date desc
+        allSubmissions.sort((a, b) => new Date(b.date) - new Date(a.date));
+
+        res.json({ success: true, data: allSubmissions });
     } catch (err) {
         res.status(500).json({ success: false, message: err.message });
     }
