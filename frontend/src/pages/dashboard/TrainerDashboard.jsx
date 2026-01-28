@@ -82,7 +82,7 @@ export default function TrainerDashboard() {
                 />
                 <StatCard
                     title="Avg. Completion"
-                    value={`${stats?.avgCompletionRate || 0}%`}
+                    value={`${Math.round(stats?.avgCompletionRate || 0)}%`}
                     icon={ChartBarIcon}
                 />
             </div>

@@ -50,7 +50,7 @@ export function DialogContent({ children, className }) {
     <HeadlessDialogPanel
       transition
       className={clsx(
-        'w-full max-w-md rounded-xl bg-white/5 p-6 backdrop-blur-2xl',
+        'w-full max-w-md rounded-xl bg-[#1a1a1a] border border-[#2a2a2a] shadow-2xl shadow-black p-6',
         'duration-300 ease-out',
         'data-closed:transform-[scale(95%)] data-closed:opacity-0',
         className

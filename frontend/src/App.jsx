@@ -273,7 +273,7 @@ export default function App() {
             <Route
               path="/assessments"
               element={
-                <ProtectedRoute allowedRoles={['trainer', 'admin', 'super_admin']}>
+                <ProtectedRoute allowedRoles={['learner', 'trainer', 'admin', 'super_admin']}>
                   <AssessmentsPage />
                 </ProtectedRoute>
               }
@@ -379,15 +379,7 @@ export default function App() {
               }
             />
 
-            {/* Protected routes - Assessments */}
-            <Route
-              path="/assessments"
-              element={
-                <ProtectedRoute allowedRoles={['trainer', 'admin', 'super_admin']}>
-                  <AssessmentsPage />
-                </ProtectedRoute>
-              }
-            />
+
 
             {/* Protected routes - Super Admin only */}
             <Route

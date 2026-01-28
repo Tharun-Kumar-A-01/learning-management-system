@@ -89,7 +89,7 @@ export default function LearnerDashboard() {
                         className="text-lg font-semibold"
                         style={{ color: getProgressColor(totalProgress) }}
                     >
-                        {totalProgress}%
+                        {Math.round(totalProgress)}%
                     </span>
                 </div>
                 <div className="h-3 bg-[#0e0e0e] rounded-full overflow-hidden">
@@ -179,7 +179,7 @@ export default function LearnerDashboard() {
                                                 className="text-xs"
                                                 style={{ color: getProgressColor(course.progress || 0) }}
                                             >
-                                                {course.progress || 0}%
+                                                {Math.round(course.progress || 0)}%
                                             </span>
                                         </div>
                                     </div>

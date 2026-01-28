@@ -217,7 +217,7 @@ export default function AppealsPage() {
                         const isActioning = actioning === (item.appeal._id || item.courseId + item.lessonId + (item.userId || ''));
 
                         return (
-                            <div key={idx} className="bg-[#1a1a1a] border border-[#2a2a2a] rounded-2xl p-5 hover:border-[#333] transition-colors relative overflow-hidden group">
+                            <div key={idx} className="bg-[#1a1a1a] border border-[#2a2a2a] max-w-4xl rounded-2xl p-5 hover:border-[#333] transition-colors relative overflow-hidden group">
                                 {item.type === 'assessment' && (
                                     <div className="absolute top-0 right-0 p-2 opacity-5 pointer-events-none group-hover:opacity-10 transition-opacity">
                                         <DocumentIcon className="w-20 h-20 text-[#5f82f3]" />
@@ -227,7 +227,7 @@ export default function AppealsPage() {
                                     <div className="flex-1">
                                         <div className="flex items-center justify-between mb-4">
                                             <div className="flex items-center gap-2">
-                                                <span className={`text-[9px] font-black px-2 py-0.5 rounded-sm uppercase tracking-widest ${item.type === 'quiz' ? 'bg-[#5f82f3] text-white' : 'bg-amber-500 text-black'}`}>
+                                                <span className={`text-[9px] font-black px-2 py-0.5 rounded-sm uppercase tracking-widest ${item.type === 'quiz' ? 'bg-[#5f82f3] text-black' : 'bg-amber-500 text-black'}`}>
                                                     {item.type}
                                                 </span>
                                                 <h3 className="text-lg font-bold text-[#e4e4ea] tracking-tight">
@@ -277,7 +277,12 @@ export default function AppealsPage() {
                                             <div className="grid grid-cols-2 gap-4 mt-1">
                                                 <div className="flex flex-col">
                                                     <span className="text-[10px] uppercase font-bold text-[#444] tracking-widest">{item.type === 'quiz' ? 'Best Score' : 'Submission Score'}</span>
-                                                    <span className="text-sm font-black text-amber-500">{item.bestScore || item.score || 0}%</span>
+                                                    <span className="text-sm font-black text-amber-500">
+                                                        {item.type === 'quiz'
+                                                            ? (typeof (item.bestScore || item.score) === 'number' ? (item.bestScore || item.score).toFixed(2) : (item.bestScore || item.score || 0))
+                                                            : Math.round(item.score || item.bestScore || 0)
+                                                        }%
+                                                    </span>
                                                 </div>
                                                 <div className="flex flex-col">
                                                     <span className="text-[10px] uppercase font-bold text-[#444] tracking-widest">Submitted</span>

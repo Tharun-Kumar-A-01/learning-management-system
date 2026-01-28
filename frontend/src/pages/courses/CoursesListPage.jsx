@@ -327,7 +327,7 @@ export default function CoursesListPage() {
                                         <div className="flex justify-between text-xs mb-1">
                                             <span className="text-[#888]">Progress</span>
                                             <span style={{ color: getProgressColor(course.progress || 0) }}>
-                                                {course.progress || 0}%
+                                                {Math.round(course.progress || 0)}%
                                             </span>
                                         </div>
                                         <div className="h-1.5 bg-[#0e0e0e] rounded-full overflow-hidden">

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { apiFetch } from '../../utils/api';
 import DashboardLayout from '../../components/layout/DashboardLayout';
@@ -88,6 +88,7 @@ export default function CourseDetailsPage() {
     const [appealReason, setAppealReason] = useState('');
     const [showAppealModal, setShowAppealModal] = useState(false);
     const [submittingAppeal, setSubmittingAppeal] = useState(false);
+    const lastLessonId = useRef(null);
 
     const isOwner = course?.createdBy?._id === user?.id || course?.createdBy === user?.id;
     const isTrainer = user?.role === 'trainer';
@@ -99,18 +100,24 @@ export default function CourseDetailsPage() {
         fetchCourse();
     }, [id]);
 
-    // Reset quiz state when lesson changes
+    // Reset quiz state ONLY when lesson actually changes
     useEffect(() => {
-        setQuizAnswers({});
-        setQuizStarted(false);
-        setQuizSubmitted(false);
-        setQuizResults(null);
-        setTimeRemaining(null);
-        setPreviewMode(false);
-        setAppealReason('');
-        setShowAppealModal(false);
+        const currentLesson = course?.modules?.[activeModule]?.lessons?.[activeLesson];
+        if (currentLesson && currentLesson._id !== lastLessonId.current) {
+            setQuizAnswers({});
+            setQuizStarted(false);
+            setQuizSubmitted(false);
+            setQuizResults(null);
+            setTimeRemaining(null);
+            setPreviewMode(false);
+            setAppealReason('');
+            setShowAppealModal(false);
+            lastLessonId.current = currentLesson._id;
+        }
+    }, [activeModule, activeLesson, course]);
 
-        // Load existing quiz results if any
+    // Load existing quiz results if any (runs when course data updates or lesson changes)
+    useEffect(() => {
         if (course) {
             const currentLesson = course.modules?.[activeModule]?.lessons?.[activeLesson];
             if (currentLesson) {
@@ -474,17 +481,28 @@ export default function CourseDetailsPage() {
         <DashboardLayout>
             {/* Header */}
             <div className="mb-6">
-                <Link to="/courses" className="inline-flex items-center gap-1 text-sm text-[#666] hover:text-[#e4e4ea] mb-4">
+                <button
+                    onClick={() => {
+                        if (quizStarted && !quizSubmitted) {
+                            if (window.confirm('Quitting now will count as a failed attempt. Are you sure you want to leave?')) {
+                                handleQuizSubmit();
+                                navigate('/courses');
+                            }
+                        } else {
+                            navigate('/courses');
+                        }
+                    }}
+                    className="inline-flex items-center gap-1 text-sm text-[#666] hover:text-[#e4e4ea] mb-4"
+                >
                     <ArrowLeftIcon className="w-4 h-4" />
                     Back to Courses
-                </Link>
+                </button>
                 <div className="flex items-start justify-between">
                     <div>
                         <div className="flex items-center gap-2 mb-1">
                             <h1 className="text-xl font-semibold text-[#e4e4ea]">{course.title}</h1>
                             {canPublish && (
                                 <span className="flex items-center gap-1 px-2 py-0.5 text-xs rounded bg-[#ffb84d]/10 text-[#ffb84d]">
-                                    <EyeSlashIcon className="w-3 h-3" />
                                     Draft
                                 </span>
                             )}
@@ -495,10 +513,10 @@ export default function CourseDetailsPage() {
                                 <BookOpenIcon className="w-4 h-4" />
                                 {course.modules?.length || 0} modules
                             </span>
-                            <span className="flex items-center gap-1">
+                            {/* <span className="flex items-center gap-1">
                                 <ClockIcon className="w-4 h-4" />
                                 {course.duration || 0} min
-                            </span>
+                            </span> */}
                             <span className={`px-2 py-0.5 rounded ${course.difficulty === 'beginner' ? 'bg-[#5dff4f]/10 text-[#5dff4f]' :
                                 course.difficulty === 'intermediate' ? 'bg-[#ffb84d]/10 text-[#ffb84d]' :
                                     'bg-[#ff4848]/10 text-[#ff4848]'
@@ -575,7 +593,7 @@ export default function CourseDetailsPage() {
                                 className="text-sm font-semibold"
                                 style={{ color: getProgressColor(progress) }}
                             >
-                                {progress}%
+                                {Math.round(progress)}%
                             </span>
                         </div>
                         <div className="h-2 bg-[#0e0e0e] rounded-full overflow-hidden">
@@ -715,6 +733,7 @@ export default function CourseDetailsPage() {
                                     <AssessmentView
                                         lesson={currentLesson}
                                         result={quizResults}
+                                        isLessonCompleted={isLessonCompleted}
                                         onSubmit={handleAssessmentSubmit}
                                         onAppeal={() => setShowAppealModal(true)}
                                     />
@@ -730,39 +749,49 @@ export default function CourseDetailsPage() {
                                                 </div>
                                                 <h3 className="text-xl font-bold text-[#e4e4ea] mb-2">{currentLesson.title}</h3>
 
-                                                <div className="max-w-md mx-auto mb-8 text-left bg-amber-500/5 border border-amber-500/20 rounded-xl p-5">
+                                                <div className="max-w-md mx-auto mb-8 text-left bg-[#1a1a1a] border border-[#2a2a2a] rounded-xl p-5">
                                                     <div className="flex items-center gap-2 mb-3 text-amber-500 font-bold text-xs uppercase tracking-wider">
                                                         <ExclamationTriangleIcon className="w-4 h-4" />
                                                         Assessment Rules
                                                     </div>
                                                     <ul className="space-y-3">
                                                         <li className="flex items-start gap-3">
-                                                            <div className="w-1.5 h-1.5 rounded-full bg-amber-500/50 mt-1.5 flex-shrink-0" />
+                                                            <div className="w-1.5 h-1.5 rounded-full bg-white/50 mt-1.5 flex-shrink-0" />
                                                             <div className="text-xs text-[#888]">
-                                                                <span className="text-[#e4e4ea] font-medium">Passing Criteria:</span> You must score at least <span className="text-amber-500 font-bold">{currentLesson.passingPercentage || 70}%</span> to pass this assessment.
+                                                                <span className="text-[#e4e4ea] font-medium">Passing Criteria: </span> <span className="text-white font-bold">{currentLesson.passingPercentage || 70}%</span>
                                                             </div>
                                                         </li>
                                                         <li className="flex items-start gap-3">
-                                                            <div className="w-1.5 h-1.5 rounded-full bg-amber-500/50 mt-1.5 flex-shrink-0" />
+                                                            <div className="w-1.5 h-1.5 rounded-full bg-white/50 mt-1.5 flex-shrink-0" />
                                                             <div className="text-xs text-[#888]">
-                                                                <span className="text-[#e4e4ea] font-medium">Time Limit:</span> {currentLesson.timeLimit > 0 ? (
-                                                                    <span>You have <span className="text-amber-500 font-bold">{currentLesson.timeLimit} minutes</span> to complete all {currentLesson.questions?.length || 0} questions.</span>
+                                                                {currentLesson.timeLimit > 0 ? (
+                                                                    <span className="text-[#e4e4ea] font-medium">Time Limit: <span className="text-white font-bold">{currentLesson.timeLimit} minutes</span></span>
                                                                 ) : (
-                                                                    <span>No time limit for this assessment.</span>
+                                                                    <></>
                                                                 )}
                                                             </div>
                                                         </li>
                                                         <li className="flex items-start gap-3">
-                                                            <div className="w-1.5 h-1.5 rounded-full bg-amber-500/50 mt-1.5 flex-shrink-0" />
+                                                            <div className="w-1.5 h-1.5 rounded-full bg-white/50 mt-1.5 flex-shrink-0" />
+                                                            <div className="text-xs text-[#888]">
+                                                                {currentLesson.questions?.length > 0 ? (
+                                                                    <span className="text-[#e4e4ea] font-medium">Questions: <span className="text-white font-bold">{currentLesson.questions?.length || 0}</span></span>
+                                                                ) : (
+                                                                    <></>
+                                                                )}
+                                                            </div>
+                                                        </li>
+                                                        <li className="flex items-start gap-3">
+                                                            <div className="w-1.5 h-1.5 rounded-full bg-white/50 mt-1.5 flex-shrink-0" />
                                                             <div className="text-xs text-[#888]">
                                                                 <span className="text-[#e4e4ea] font-medium">Attempts:</span> {currentLesson.maxAttempts > 0 ? (
-                                                                    <span>Max <span className="text-amber-500 font-bold">{currentLesson.maxAttempts} attempts</span> allowed. {quizResults?.attemptsLeft !== undefined ? (
-                                                                        <span>You have <span className="text-amber-500 font-bold">{quizResults.attemptsLeft}</span> remaining.</span>
+                                                                    <span>Max: <span className="text-white font-bold">{currentLesson.maxAttempts}</span> {quizResults?.attemptsLeft !== undefined ? (
+                                                                        <span>Remaining: <span className="text-amber-500 font-bold">{quizResults.attemptsLeft}</span></span>
                                                                     ) : (
-                                                                        <span>Ensure you are ready before starting.</span>
+                                                                        <span><br />Ensure you are ready before starting.</span>
                                                                     )}</span>
                                                                 ) : (
-                                                                    <span>Unlimited attempts allowed. Take your time to learn.</span>
+                                                                    <></>
                                                                 )}
                                                             </div>
                                                         </li>
@@ -774,10 +803,9 @@ export default function CourseDetailsPage() {
                                                         <div className="flex flex-col items-center gap-3">
                                                             <p className="text-xs text-[#666]">You must enroll in this course to take the assessment.</p>
                                                             <button
-                                                                onClick={handleEnroll}
-                                                                className="px-8 py-3 bg-[#5dff4f] text-[#0e0e0e] text-sm font-bold rounded-lg hover:bg-[#4de63e] transition-all transform hover:scale-105 shadow-lg shadow-[#5dff4f]/20"
+                                                                className="px-8 py-3 bg-[#1a1a1a] border border-[#2a2a2a] text-[#424242] text-sm font-bold rounded-lg"
                                                             >
-                                                                Enroll Now to Start
+                                                                Start Quiz
                                                             </button>
                                                         </div>
                                                     ) : (
@@ -793,9 +821,9 @@ export default function CourseDetailsPage() {
                                                             <button
                                                                 onClick={startQuiz}
                                                                 disabled={(isLessonCompleted && !currentLesson?.maxAttempts) || (currentLesson.maxAttempts > 0 && quizResults?.attemptsLeft === 0)}
-                                                                className="px-8 py-3 bg-[#5f82f3] text-white rounded-lg text-sm font-bold hover:bg-[#4a6fd3] transition-all transform hover:scale-105 shadow-xl shadow-[#5f82f3]/20 disabled:opacity-50 disabled:scale-100"
+                                                                className="px-8 py-3 bg-[#5f82f3] text-black rounded-lg text-sm font-bold hover:bg-[#4a6fd3] transition-all transform hover:scale-105 shadow-xl shadow-[#5f82f3]/20 disabled:opacity-50 disabled:scale-100"
                                                             >
-                                                                {isLessonCompleted ? 'Retake Quiz' : 'I Understand, Start Quiz'}
+                                                                {isLessonCompleted ? 'Retake Quiz' : 'Start Quiz'}
                                                             </button>
                                                         </>
                                                     )}
@@ -862,7 +890,7 @@ export default function CourseDetailsPage() {
                                                 </h3>
                                                 <div className="flex flex-col items-center gap-1 mb-6">
                                                     <div className="text-3xl font-black text-[#e4e4ea]">
-                                                        {quizResults?.percentage}%
+                                                        {quizResults?.percentage?.toFixed(2)}%
                                                     </div>
                                                     <p className="text-sm text-[#666]">
                                                         You got <span className="text-[#5dff4f] font-bold">{quizResults?.score}</span> correct out of <span className="text-[#e4e4ea] font-medium">{quizResults?.totalPoints}</span> questions
@@ -871,13 +899,18 @@ export default function CourseDetailsPage() {
 
                                                 <div className="flex flex-col items-center gap-4">
                                                     <div className="flex justify-center gap-3">
-                                                        {(quizResults?.passed || (quizResults?.attemptsLeft > 0 || quizResults?.attemptsLeft === null)) && (
+                                                        {!quizResults?.passed && (quizResults?.attemptsLeft > 0 || quizResults?.attemptsLeft === null) && (
                                                             <button
                                                                 onClick={startQuiz}
                                                                 className="px-4 py-2 bg-[#1a1a1a] border border-[#2a2a2a] text-[#e4e4ea] rounded-lg hover:border-[#5f82f3] transition-colors"
                                                             >
                                                                 Retry Quiz
                                                             </button>
+                                                        )}
+                                                        {quizResults?.passed && (
+                                                            <div className="px-4 py-2 bg-[#5dff4f]/10 text-[#5dff4f] rounded-lg text-sm font-medium">
+                                                                No retries needed for passed quiz
+                                                            </div>
                                                         )}
                                                         {isLessonCompleted && (
                                                             <button
@@ -898,12 +931,12 @@ export default function CourseDetailsPage() {
 
                                                     {!quizResults?.passed && quizResults?.attemptsLeft === 0 && (
                                                         <div className="mt-4 p-4 bg-[#ff4848]/10 border border-[#ff4848]/20 rounded-xl max-w-md">
-                                                            <p className="text-xs text-[#ff4848] mb-3">
+                                                            <p className="text-xs text-[#ff4848] mb-3 leading-relaxed">
                                                                 You have exhausted all attempts for this assessment.
-                                                                {quizResults?.appealStatus === 'none' ? 'You can appeal to your instructor for extra attempts.' :
-                                                                    quizResults?.appealStatus === 'pending' ? 'Your appeal is currently under review.' :
-                                                                        quizResults?.appealStatus === 'rejected' ? 'Your appeal was rejected. You may continue the course but this assessment remains failed.' :
-                                                                            'Your appeal was approved! You can now retry.'}
+                                                                {quizResults?.appealStatus === 'none' ? ' You can appeal to your instructor for extra attempts.' :
+                                                                    quizResults?.appealStatus === 'pending' ? ' Your appeal is currently under review.' :
+                                                                        quizResults?.appealStatus === 'rejected' ? ' Your appeal was rejected. You may continue the course but this assessment remains failed.' :
+                                                                            (quizResults?.attemptsLeft === 0 ? ' Your appeal attempts are also exhausted. You can continue the course anyway.' : ' Your appeal was approved! You can now retry.')}
                                                             </p>
                                                             {quizResults?.appealStatus === 'none' && (
                                                                 <button
@@ -913,7 +946,7 @@ export default function CourseDetailsPage() {
                                                                     Submit Appeal for More Attempts
                                                                 </button>
                                                             )}
-                                                            {quizResults?.appealStatus === 'rejected' && (
+                                                            {(quizResults?.appealStatus === 'rejected' || (quizResults?.appealStatus === 'approved' && quizResults?.attemptsLeft === 0)) && (
                                                                 <button
                                                                     onClick={() => {
                                                                         if (activeLesson < (currentModule?.lessons?.length || 0) - 1) {
@@ -1159,7 +1192,7 @@ export default function CourseDetailsPage() {
                             <button
                                 onClick={handleAppealSubmit}
                                 disabled={submittingAppeal || !appealReason.trim()}
-                                className="flex-1 py-2 bg-[#5f82f3] text-white text-sm font-medium rounded-lg hover:bg-[#4a6fd3] disabled:opacity-50"
+                                className="flex-1 py-2 bg-[#5f82f3] text-black text-sm font-medium rounded-lg hover:bg-[#4a6fd3]"
                             >
                                 {submittingAppeal ? 'Submitting...' : 'Submit Appeal'}
                             </button>
@@ -1171,10 +1204,11 @@ export default function CourseDetailsPage() {
     );
 }
 
-function AssessmentView({ lesson, result, onSubmit, onAppeal }) {
+function AssessmentView({ lesson, result, isLessonCompleted, onSubmit, onAppeal }) {
     const [file, setFile] = useState(null);
     const [error, setError] = useState('');
     const [submitting, setSubmitting] = useState(false);
+    const [showConfirm, setShowConfirm] = useState(false);
 
     const handleFileChange = (e) => {
         const selectedFile = e.target.files[0];
@@ -1201,62 +1235,130 @@ function AssessmentView({ lesson, result, onSubmit, onAppeal }) {
                 await onSubmit(reader.result);
                 setFile(null);
                 setSubmitting(false);
+                setShowConfirm(false);
             };
         } catch (err) {
             setError('Upload failed. Please try again.');
             setSubmitting(false);
+            setShowConfirm(false);
         }
     };
 
     const isSubmitted = result && result.status !== 'approved_for_resubmission';
+    const isPassed = result?.status === 'passed' || (result?.status === 'graded' && result?.percentage >= (lesson?.passingPercentage || 70));
+    const isFailed = result?.status === 'failed' || (result?.status === 'graded' && result?.percentage < (lesson?.passingPercentage || 70));
 
     return (
         <div className="p-8 max-w-xl mx-auto">
-            {isSubmitted ? (
+            {isSubmitted || isLessonCompleted ? (
                 <div className="text-center py-12 bg-[#1a1a1a] border border-[#2a2a2a] rounded-2xl shadow-xl">
-                    <CheckCircleIcon className="w-12 h-12 text-[#5dff4f] mx-auto mb-4" />
-                    <h3 className="text-xl font-bold text-[#e4e4ea] mb-1">Success!</h3>
-                    <p className="text-[10px] text-[#666] font-black uppercase tracking-[0.2em] mb-6">Assessment has been submitted</p>
-                    {result.status === 'graded' || result.status === 'passed' || result.status === 'failed' ? (
-                        <div className="mt-6 pt-6 border-t border-[#2a2a2a] px-8">
-                            <div className="text-4xl font-black text-[#e4e4ea] mb-2">{result.percentage}%</div>
-                            <p className="text-[10px] text-[#5f82f3] font-black uppercase tracking-widest mb-4">Final Grade</p>
+                    {isPassed || (isLessonCompleted && !isFailed) ? (
+                        <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-[#5dff4f]/10 mb-6">
+                            <CheckCircleSolid className="w-12 h-12 text-[#5dff4f]" />
+                        </div>
+                    ) : isFailed ? (
+                        <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-[#ff4848]/10 mb-6">
+                            <XMarkSolid className="w-12 h-12 text-[#ff4848]" />
+                        </div>
+                    ) : (
+                        <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-amber-500/10 mb-6">
+                            <ClockIcon className="w-12 h-12 text-amber-500" />
+                        </div>
+                    )}
+
+                    <h3 className="text-2xl font-black text-[#e4e4ea] mb-2">
+                        {isPassed || (isLessonCompleted && !isFailed) ? 'Assessment Passed!' : isFailed ? 'Assessment Failed' : 'Submission Received'}
+                    </h3>
+                    <p className="text-[11px] text-[#666] font-black uppercase tracking-[0.2em] mb-8">
+                        {isPassed || isFailed || isLessonCompleted ? 'Your work has been evaluated' : 'Your work is under expert review'}
+                    </p>
+
+                    {(result?.status === 'graded' || result?.status === 'passed' || result?.status === 'failed' || isLessonCompleted) && (result?.percentage !== undefined || result?.score !== undefined) ? (
+                        <div className="mt-6 pt-8 border-t border-[#2a2a2a] px-8">
+                            <div className="text-5xl font-black text-[#e4e4ea] mb-2">{Math.round(result?.percentage || result?.score || 0)}%</div>
+                            <p className="text-[10px] text-[#5f82f3] font-black uppercase tracking-widest mb-4">Final Performance Score</p>
                             {result.feedback && (
-                                <div className="p-4 bg-black/40 rounded-xl border border-[#2a2a2a]">
-                                    <p className="text-xs text-[#888] italic leading-relaxed">"{result.feedback}"</p>
+                                <div className="p-5 bg-black/40 rounded-2xl border border-[#2a2a2a] mb-6 text-left shadow-inner">
+                                    <p className="text-[10px] text-[#444] font-black uppercase tracking-widest mb-3 border-b border-[#222] pb-2">Expert Feedback</p>
+                                    <p className="text-sm text-[#888] italic leading-relaxed font-medium">"{result.feedback}"</p>
                                 </div>
+                            )}
+
+                            {isFailed && !isLessonCompleted && (
+                                <button
+                                    onClick={onAppeal}
+                                    className="w-full py-4 bg-[#ff4848] text-white text-xs font-black uppercase tracking-widest rounded-xl hover:bg-[#e43e3e] transition-all shadow-lg shadow-[#ff4848]/20"
+                                >
+                                    Apply for Re-evaluation
+                                </button>
                             )}
                         </div>
                     ) : (
-                        <div className="bg-amber-500/5 border border-amber-500/10 p-4 rounded-xl mx-8">
-                            <p className="text-[10px] text-amber-500 font-bold uppercase tracking-widest">Under Evaluation</p>
+                        <div className="bg-amber-500/5 border border-amber-500/10 p-6 rounded-2xl mx-8 flex flex-col items-center">
+                            <span className="animate-pulse w-2 h-2 rounded-full bg-amber-500 mb-3" />
+                            <p className="text-[11px] text-amber-500 font-black uppercase tracking-widest">Review Pending</p>
+                            <p className="text-[9px] text-[#444] mt-2 font-bold uppercase">Estimated time: 24-48 hours</p>
                         </div>
                     )}
                 </div>
             ) : (
                 <div className="space-y-6">
-                    <div className={`relative border-2 border-dashed rounded-2xl p-12 flex flex-col items-center gap-4 transition-all group ${file ? 'border-[#5f82f3] bg-[#5f82f3]/5' : 'border-[#2a2a2a] hover:border-[#444] bg-black/20'}`}>
-                        <input
-                            type="file"
-                            accept=".pdf"
-                            title=""
-                            onChange={handleFileChange}
-                            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-20"
-                        />
-                        <CloudArrowUpIcon className={`w-12 h-12 transition-all duration-300 ${file ? 'text-[#5f82f3] scale-110' : 'text-[#333] group-hover:text-[#444]'}`} />
-                        <div className="text-center">
-                            <p className="text-sm text-[#e4e4ea] font-bold tracking-tight">{file ? file.name : 'Choose or Drop PDF'}</p>
-                            <p className="text-[10px] text-[#666] mt-1.5 font-bold uppercase tracking-[0.1em]">Max PDF size 2MB</p>
+                    {!showConfirm ? (
+                        <>
+                            <div className={`relative border-2 border-dashed rounded-2xl p-12 flex flex-col items-center gap-4 transition-all group ${file ? 'border-[#5f82f3] bg-[#5f82f3]/5' : 'border-[#2a2a2a] hover:border-[#444] bg-black/20'}`}>
+                                <input
+                                    type="file"
+                                    accept=".pdf"
+                                    title=""
+                                    onChange={handleFileChange}
+                                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-20"
+                                />
+                                <CloudArrowUpIcon className={`w-12 h-12 transition-all duration-300 ${file ? 'text-[#5f82f3] scale-110' : 'text-[#333] group-hover:text-[#444]'}`} />
+                                <div className="text-center">
+                                    <p className="text-sm text-[#e4e4ea] font-bold tracking-tight">{file ? file.name : 'Choose or Drop PDF'}</p>
+                                    <p className="text-[10px] text-[#666] mt-1.5 font-bold uppercase tracking-[0.1em]">Max PDF size 2MB</p>
+                                </div>
+                            </div>
+                            {error && <p className="text-[10px] text-[#ff4848] text-center font-bold uppercase tracking-widest bg-[#ff4848]/5 py-2 rounded-lg">{error}</p>}
+                            <button
+                                onClick={() => setShowConfirm(true)}
+                                disabled={!file || submitting}
+                                className="w-full py-4 bg-[#5f82f3] text-[#0e0e0e] text-[13px] font-black uppercase tracking-[0.2em] rounded-xl hover:bg-white hover:shadow-2xl transition-all disabled:opacity-30"
+                            >
+                                {submitting ? 'Submitting...' : 'Submit'}
+                            </button>
+                        </>
+                    ) : (
+                        <div className="p-8 bg-[#1a1a1a] border border-[#2a2a2a] rounded-2xl text-center">
+                            <ExclamationTriangleIcon className="w-12 h-12 text-amber-500 mx-auto mb-4" />
+                            <h3 className="text-lg font-bold text-white mb-2">Confirm Submission</h3>
+                            <div className="mb-6 p-4 bg-black/40 rounded-xl border border-[#2a2a2a] flex items-center gap-3">
+                                <DocumentIcon className="w-6 h-6 text-[#5f82f3]" />
+                                <div className="text-left overflow-hidden">
+                                    <p className="text-[10px] text-[#444] font-black uppercase tracking-widest">Ready to upload</p>
+                                    <p className="text-sm text-[#e4e4ea] font-medium truncate">{file?.name}</p>
+                                </div>
+                            </div>
+                            <p className="text-sm text-[#888] mb-6">
+                                You can only submit this document once. Are you sure your document is ready for grading?
+                            </p>
+                            <div className="flex gap-4">
+                                <button
+                                    onClick={() => setShowConfirm(false)}
+                                    className="flex-1 py-3 bg-[#2a2a2a] text-[#888] rounded-xl font-bold hover:text-white transition-colors"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    onClick={handleUpload}
+                                    disabled={submitting}
+                                    className="flex-1 py-3 bg-[#5f82f3] text-black rounded-xl font-bold hover:bg-[#4a6fd3] transition-colors disabled:opacity-50"
+                                >
+                                    {submitting ? 'Submitting...' : 'Confirm'}
+                                </button>
+                            </div>
                         </div>
-                    </div>
-                    {error && <p className="text-[10px] text-[#ff4848] text-center font-bold uppercase tracking-widest bg-[#ff4848]/5 py-2 rounded-lg">{error}</p>}
-                    <button
-                        onClick={handleUpload}
-                        disabled={!file || submitting}
-                        className="w-full py-4 bg-[#5f82f3] text-[#0e0e0e] text-[10px] font-black uppercase tracking-[0.2em] rounded-xl hover:bg-white hover:shadow-2xl transition-all disabled:opacity-30"
-                    >
-                        {submitting ? 'Submitting...' : 'Complete Assessment'}
-                    </button>
+                    )}
                 </div>
             )}
         </div>

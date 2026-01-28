@@ -136,6 +136,7 @@ router.get('/:id', protect, async (req, res) => {
         courseObj.progress = enrollment ? enrollment.progress : 0;
         courseObj.completedLessons = enrollment ? enrollment.completedLessons : [];
         courseObj.quizResults = enrollment ? enrollment.quizResults : [];
+        courseObj.assessmentResults = enrollment ? enrollment.assessmentResults : [];
 
         // Hide sensitive content for non-enrolled/non-owners
         const canSeeSensitive = courseObj.isEnrolled ||
@@ -324,14 +325,10 @@ router.put('/:id/progress', protect, async (req, res) => {
 
         // Update progress
         if (progress !== undefined) {
-            enrollment.progress = progress;
+            enrollment.progress = Math.round(progress);
         }
 
         // Check for completion
-        if (enrollment.progress >= 100) {
-            enrollment.completed = true;
-            enrollment.completedAt = new Date();
-        }
         if (enrollment.progress >= 100) {
             enrollment.completed = true;
             enrollment.completedAt = new Date();
@@ -407,7 +404,8 @@ router.post('/:id/quiz/:lessonId/submit', protect, async (req, res) => {
             }
         });
 
-        const percentage = totalPoints > 0 ? (score / totalPoints) * 100 : 0;
+        const rawPercentage = totalPoints > 0 ? (score / totalPoints) * 100 : 0;
+        const percentage = Math.round(rawPercentage * 100) / 100; // Round to 2 decimal places
         const passed = percentage >= (targetLesson.passingPercentage || 70);
 
         // Record Attempt
@@ -664,7 +662,7 @@ router.post('/:id/assessment/:lessonId/submit', protect, authorize('learner'), a
         let assessmentResult = enrollment.assessmentResults.find(r => r.lessonId === lessonId);
         if (assessmentResult) {
             // Strictly only one submission allowed unless an appeal was approved for resubmission
-            if (assessmentResult.status !== 'approved_for_resubmission' && assessmentResult.status !== 'failed') {
+            if (assessmentResult.status !== 'approved_for_resubmission') {
                 return res.status(400).json({ success: false, message: 'Assessment already submitted. Only one submission allowed.' });
             }
             assessmentResult.submissionFile = submissionFile;
@@ -690,8 +688,14 @@ router.post('/:id/assessment/:lessonId/submit', protect, authorize('learner'), a
 // @access  Private (Trainer/Admin)
 router.put('/:id/assessment/:lessonId/grade/:userId', protect, authorize('trainer', 'admin', 'super_admin'), async (req, res) => {
     try {
-        const { score, feedback } = req.body;
+        let { score, feedback } = req.body;
         const { id, lessonId, userId } = req.params;
+
+        // Validation: Score must be an integer between 0 and 100
+        score = parseInt(score);
+        if (isNaN(score) || score < 0 || score > 100) {
+            return res.status(400).json({ success: false, message: 'Invalid score. Must be between 0 and 100.' });
+        }
 
         const course = await Course.findById(id);
         if (!course) return res.status(404).json({ success: false, message: 'Course not found' });
@@ -847,6 +851,40 @@ router.get('/assessments/manage', protect, authorize('trainer', 'admin', 'super_
                     });
                 });
             });
+        });
+
+        // Sort by date desc
+        allSubmissions.sort((a, b) => new Date(b.date) - new Date(a.date));
+
+        res.json({ success: true, data: allSubmissions });
+    } catch (err) {
+        res.status(500).json({ success: false, message: err.message });
+    }
+});
+
+// @desc    Get current user's assessments
+// @route   GET /api/courses/assessments/my
+// @access  Private (Learner)
+router.get('/assessments/my', protect, authorize('learner'), async (req, res) => {
+    try {
+        const courses = await Course.find({ 'enrollments.userId': req.user.id });
+        const allSubmissions = [];
+        courses.forEach(course => {
+            const enrollment = course.enrollments.find(e => e.userId.toString() === req.user.id);
+            if (enrollment && enrollment.assessmentResults) {
+                enrollment.assessmentResults.forEach(result => {
+                    allSubmissions.push({
+                        courseId: course._id,
+                        courseTitle: course.title,
+                        lessonId: result.lessonId,
+                        submissionFile: result.submissionFile,
+                        score: result.score,
+                        status: result.status,
+                        feedback: result.feedback,
+                        date: result.submissionDate || result.date
+                    });
+                });
+            }
         });
 
         // Sort by date desc
