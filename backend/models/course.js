@@ -100,6 +100,20 @@ const EnrollmentSchema = new mongoose.Schema({
         type: Boolean,
         default: false
     },
+    // Manual enrollment fields
+    deadline: {
+        type: Date,
+        default: null
+    },
+    isMandatory: {
+        type: Boolean,
+        default: false
+    },
+    enrolledBy: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User',
+        default: null
+    },
     quizResults: [{
         lessonId: String,
         attempts: [{
@@ -213,6 +227,10 @@ const CourseSchema = new mongoose.Schema({
         type: Boolean,
         default: true
     },
+    recommendedArticles: [{
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Article'
+    }],
     createdAt: {
         type: Date,
         default: Date.now

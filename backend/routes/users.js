@@ -3,12 +3,14 @@ const router = express.Router();
 const User = require('../models/user');
 const { protect, authorize } = require('../middleware/auth');
 
+const Course = require('../models/course');
+
 // @desc    Get all users
 // @route   GET /api/users
 // @access  Private (Admin, Super Admin)
 router.get('/', protect, authorize('admin', 'super_admin'), async (req, res) => {
     try {
-        const { role, search, status } = req.query;
+        const { role, search, status, courseId } = req.query;
         let query = {};
 
         // Filter by role
@@ -38,9 +40,22 @@ router.get('/', protect, authorize('admin', 'super_admin'), async (req, res) => 
             }
         }
 
-        const users = await User.find(query)
+        let users = await User.find(query)
             .select('-password')
             .sort({ createdAt: -1 });
+
+        // If courseId is provided, mark users as enrolled or not
+        if (courseId) {
+            const course = await Course.findById(courseId);
+            if (course) {
+                const enrolledUserIds = course.enrollments.map(e => e.userId.toString());
+                users = users.map(user => {
+                    const userObj = user.toObject();
+                    userObj.isEnrolled = enrolledUserIds.includes(user._id.toString());
+                    return userObj;
+                });
+            }
+        }
 
         res.status(200).json({ success: true, data: users });
     } catch (err) {
@@ -194,15 +209,34 @@ router.put('/:id/status', protect, authorize('admin', 'super_admin'), async (req
     try {
         const { isActive } = req.body;
 
+        // Get the user to check their role
+        const targetUser = await User.findById(req.params.id);
+
+        if (!targetUser) {
+            return res.status(404).json({ success: false, message: 'User not found' });
+        }
+
+        // Prevent admins from deactivating super_admins
+        if (targetUser.role === 'super_admin' && req.user.role !== 'super_admin') {
+            return res.status(403).json({
+                success: false,
+                message: 'Only Super Admins can deactivate other Super Admin accounts'
+            });
+        }
+
+        // Prevent users from deactivating themselves
+        if (targetUser._id.toString() === req.user.id) {
+            return res.status(400).json({
+                success: false,
+                message: 'You cannot deactivate your own account from here'
+            });
+        }
+
         const user = await User.findByIdAndUpdate(
             req.params.id,
             { isActive },
             { new: true }
         ).select('-password');
-
-        if (!user) {
-            return res.status(404).json({ success: false, message: 'User not found' });
-        }
 
         res.status(200).json({ success: true, data: user });
     } catch (err) {
@@ -210,4 +244,82 @@ router.put('/:id/status', protect, authorize('admin', 'super_admin'), async (req
     }
 });
 
+// @desc    Import users from CSV
+// @route   POST /api/users/import
+// @access  Private (Admin, Super Admin)
+router.post('/import', protect, authorize('admin', 'super_admin'), async (req, res) => {
+    try {
+        const { users } = req.body;
+
+        if (!users || !Array.isArray(users) || users.length === 0) {
+            return res.status(400).json({ success: false, message: 'Please provide users array' });
+        }
+
+        const results = {
+            created: [],
+            failed: []
+        };
+
+        for (const userData of users) {
+            try {
+                const { name, email, password, role = 'learner' } = userData;
+
+                // Validate required fields
+                if (!name || !email || !password) {
+                    results.failed.push({ email: email || 'unknown', reason: 'Missing required fields' });
+                    continue;
+                }
+
+                // Validate role permissions
+                if (req.user.role === 'admin') {
+                    if (role === 'admin' || role === 'super_admin') {
+                        results.failed.push({ email, reason: 'Admins cannot create admin/super_admin users' });
+                        continue;
+                    }
+                }
+
+                if (role === 'super_admin' && req.user.role !== 'super_admin') {
+                    results.failed.push({ email, reason: 'Only Super Admins can create super_admin users' });
+                    continue;
+                }
+
+                // Check if user exists
+                const userExists = await User.findOne({ email });
+                if (userExists) {
+                    results.failed.push({ email, reason: 'User already exists' });
+                    continue;
+                }
+
+                // Create user
+                const user = await User.create({
+                    name,
+                    email,
+                    password,
+                    role,
+                    organizationId: req.user.organizationId,
+                    createdByAdmin: req.user.id
+                });
+
+                results.created.push({
+                    id: user._id,
+                    name: user.name,
+                    email: user.email,
+                    role: user.role
+                });
+            } catch (err) {
+                results.failed.push({ email: userData.email || 'unknown', reason: err.message });
+            }
+        }
+
+        res.status(200).json({
+            success: true,
+            data: results,
+            message: `Created ${results.created.length} users, ${results.failed.length} failed`
+        });
+    } catch (err) {
+        res.status(500).json({ success: false, message: err.message });
+    }
+});
+
 module.exports = router;
+

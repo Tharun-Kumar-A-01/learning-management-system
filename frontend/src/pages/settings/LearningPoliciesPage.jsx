@@ -84,7 +84,7 @@ export default function LearningPoliciesPage() {
                 <button
                     onClick={handleSave}
                     disabled={saving}
-                    className="flex items-center gap-2 px-4 py-2 bg-primary text-white text-sm rounded-lg hover:bg-[#4a6fd3] transition-colors disabled:opacity-50"
+                    className="px-4 py-2 bg-[#5f82f3] text-black text-sm rounded-lg hover:bg-[#4a6fd3] transition-colors disabled:opacity-50"
                 >
                     {saving ? 'Saving...' : 'Save Changes'}
                 </button>
@@ -113,45 +113,45 @@ export default function LearningPoliciesPage() {
                         key={policy._id}
                         className="bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg p-5"
                     >
-                        <div className="flex items-start justify-between">
-                            <div className="flex-1">
-                                <div className="flex items-center gap-3 mb-2">
-                                    <ShieldCheckIcon className="w-5 h-5 text-[#5f82f3]" />
+                        <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                                <ShieldCheckIcon className={`w-5 h-5 ${policy.value === 'true' || (policy.type === 'number' && parseInt(policy.value) > 0) ? 'text-[#5f82f3]' : 'text-[#666]'}`} />
+                                <div>
                                     <h3 className="text-sm font-medium text-[#e4e4ea]">{policy.name}</h3>
+                                    <p className="text-xs text-[#666] mt-0.5">{policy.description}</p>
                                 </div>
-                                <p className="text-xs text-[#666] mb-4">{policy.description}</p>
-
+                            </div>
+                            <div className="flex items-center gap-4">
                                 {policy.type === 'boolean' ? (
-                                    <button
-                                        onClick={() => updatePolicy(policy._id, 'value', policy.value === 'true' ? 'false' : 'true')}
-                                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${policy.value === 'true' ? 'bg-primary' : 'bg-[#2a2a2a]'
-                                            }`}
-                                    >
-                                        <span
-                                            className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${policy.value === 'true' ? 'translate-x-6' : 'translate-x-1'
+                                    <>
+                                        <span className={`text-xs font-medium ${policy.value === 'true' ? 'text-[#5dff4f]' : 'text-[#666]'}`}>
+                                            {policy.value === 'true' ? 'Enabled' : 'Disabled'}
+                                        </span>
+                                        <button
+                                            onClick={() => updatePolicy(policy._id, 'value', policy.value === 'true' ? 'false' : 'true')}
+                                            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${policy.value === 'true' ? 'bg-[#5f82f3]' : 'bg-[#2a2a2a]'
                                                 }`}
-                                        />
-                                    </button>
+                                        >
+                                            <span
+                                                className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${policy.value === 'true' ? 'translate-x-6' : 'translate-x-1'
+                                                    }`}
+                                            />
+                                        </button>
+                                    </>
                                 ) : (
-                                    <input
-                                        type="number"
-                                        value={policy.value}
-                                        onChange={(e) => updatePolicy(policy._id, 'value', e.target.value)}
-                                        className="w-24 px-3 py-1.5 bg-[#0e0e0e] border border-[#2a2a2a] rounded text-sm text-[#e4e4ea] focus:outline-none focus:border-[#5f82f3]"
-                                    />
+                                    <div className="flex items-center gap-2">
+                                        <input
+                                            type="number"
+                                            value={policy.value}
+                                            onChange={(e) => updatePolicy(policy._id, 'value', e.target.value)}
+                                            min="0"
+                                            max="100"
+                                            className="w-20 px-3 py-1.5 bg-[#0e0e0e] border border-[#2a2a2a] rounded text-sm text-[#e4e4ea] text-center focus:outline-none focus:border-[#5f82f3]"
+                                        />
+                                        <span className="text-xs text-[#666]">%</span>
+                                    </div>
                                 )}
                             </div>
-                            <label className="flex items-center gap-2 cursor-pointer">
-                                <input
-                                    type="checkbox"
-                                    checked={policy.enabled}
-                                    onChange={(e) => updatePolicy(policy._id, 'enabled', e.target.checked)}
-                                    className="sr-only"
-                                />
-                                <span className={`text-xs ${policy.enabled ? 'text-[#5dff4f]' : 'text-[#666]'}`}>
-                                    {policy.enabled ? 'Active' : 'Disabled'}
-                                </span>
-                            </label>
                         </div>
                     </div>
                 ))}
@@ -159,3 +159,4 @@ export default function LearningPoliciesPage() {
         </DashboardLayout>
     );
 }
+

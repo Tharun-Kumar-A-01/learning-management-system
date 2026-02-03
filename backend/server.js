@@ -43,6 +43,11 @@ app.use('/api/users', require('./routes/users'));
 app.use('/api/certificates', require('./routes/certificates'));
 app.use('/api/learning-policies', require('./routes/learningPolicies'));
 app.use('/api/site-settings', require('./routes/siteSettings'));
+app.use('/api/analytics', require('./routes/analytics'));
+app.use('/api/profile', require('./routes/profile'));
+app.use('/api/notifications', require('./routes/notifications'));
+app.use('/api/articles', require('./routes/articles'));
+app.use('/api/backup', require('./routes/backup'));
 
 app.get('/', (req, res) => {
     res.send('LMS API is running...');

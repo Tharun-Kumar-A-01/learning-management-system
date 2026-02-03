@@ -32,13 +32,12 @@ export default function CertificatesPage() {
         try {
             setLoading(true);
             const [coursesRes, policiesRes] = await Promise.all([
-                apiFetch('/courses/enrolled'),
+                apiFetch('/courses/enrolled?completedOnly=true'),
                 apiFetch('/learning-policies')
             ]);
 
             if (coursesRes.success) {
-                const completed = coursesRes.data.filter(c => (c.completed || c.progress === 100) && c.certificateEnabled !== false);
-                setCourses(completed);
+                setCourses(coursesRes.data);
             }
 
             // Check certificate policy
@@ -151,7 +150,7 @@ export default function CertificatesPage() {
         // Certificate ID and verification
         ctx.fillStyle = '#888888';
         ctx.font = '12px Arial';
-        ctx.fillText(`Certificate ID: ${course._id}`, canvas.width / 2, 600);
+        ctx.fillText(`Certificate ID: ${course._id}-${user?.id}`, canvas.width / 2, 600);
 
         // Download
         const link = document.createElement('a');

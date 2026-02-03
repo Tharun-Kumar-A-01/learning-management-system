@@ -114,7 +114,7 @@ export default function BrandingPage() {
                 <button
                     onClick={handleSave}
                     disabled={saving}
-                    className="flex items-center gap-2 px-4 py-2 bg-primary text-white text-sm rounded-lg hover:bg-[#4a6fd3] transition-colors disabled:opacity-50"
+                    className="flex items-center gap-2 px-4 py-2 bg-primary text-black text-sm rounded-lg hover:bg-[#4a6fd3] transition-colors disabled:opacity-50"
                 >
                     {saving ? 'Saving...' : 'Save Changes'}
                 </button>
@@ -241,13 +241,13 @@ export default function BrandingPage() {
                         <h4 className="text-xs text-[#666] mb-3">Preview</h4>
                         <div className="flex items-center gap-4">
                             <button
-                                className="px-4 py-2 rounded-lg text-white text-sm font-medium"
+                                className="px-4 py-2 rounded-lg text-black text-sm font-medium"
                                 style={{ backgroundColor: branding.primaryColor }}
                             >
                                 Primary Button
                             </button>
                             <button
-                                className="px-4 py-2 rounded-lg text-white text-sm font-medium"
+                                className="px-4 py-2 rounded-lg text-black text-sm font-medium"
                                 style={{ backgroundColor: branding.secondaryColor }}
                             >
                                 Secondary Button

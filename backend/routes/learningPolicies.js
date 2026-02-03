@@ -74,6 +74,20 @@ const DEFAULT_POLICIES = [
         value: 'true',
         type: 'boolean',
         enabled: true
+    },
+    {
+        name: 'User Registration Disabled',
+        description: 'Disable new user registrations on the platform',
+        value: 'false',
+        type: 'boolean',
+        enabled: true
+    },
+    {
+        name: 'Minimum Quiz Pass Percentage',
+        description: 'Minimum passing percentage that can be set for quizzes',
+        value: '50',
+        type: 'number',
+        enabled: true
     }
 ];
 

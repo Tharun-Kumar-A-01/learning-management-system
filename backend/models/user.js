@@ -36,6 +36,23 @@ const UserSchema = new mongoose.Schema({
         type: Boolean,
         default: true
     },
+    profilePhoto: {
+        type: String, // Base64 encoded image
+        default: null
+    },
+    emailAlertsEnabled: {
+        type: Boolean,
+        default: true
+    },
+    createdByAdmin: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User',
+        default: null
+    },
+    savedArticles: [{
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Article'
+    }],
     resetPasswordToken: String,
     resetPasswordExpire: Date,
     createdAt: {

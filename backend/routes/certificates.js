@@ -8,13 +8,20 @@ const User = require('../models/user');
 // @access  Public
 router.get('/verify/:id', async (req, res) => {
     try {
-        const certificateId = req.params.id;
+        const fullId = req.params.id;
 
-        // Certificate ID format: courseId-userId-timestamp
-        // For simplicity, we use course ID and search for completion
+        // Handle unique ID format: courseId-userId
+        const [courseId, userId] = fullId.split('-');
 
-        // Find course with this ID
-        const course = await Course.findById(certificateId).populate('createdBy', 'name');
+        if (!courseId || (fullId.includes('-') && !userId)) {
+            return res.status(400).json({
+                success: false,
+                message: 'Invalid certificate ID format.'
+            });
+        }
+
+        // Find course
+        const course = await Course.findById(courseId).populate('createdBy', 'name');
 
         if (!course) {
             return res.status(404).json({
@@ -23,18 +30,29 @@ router.get('/verify/:id', async (req, res) => {
             });
         }
 
-        // Find completed enrollments
-        const completedEnrollments = course.enrollments.filter(e => e.completed);
+        // Find specific target user
+        let targetUserId = userId;
 
-        if (completedEnrollments.length === 0) {
+        // Fallback for older certificates that only had courseId (if any exist)
+        if (!userId) {
+            const completedEnrollments = course.enrollments.filter(e => e.completed);
+            if (completedEnrollments.length === 0) {
+                return res.status(404).json({ success: false, message: 'No valid certificate found for this ID.' });
+            }
+            targetUserId = completedEnrollments[0].userId;
+        }
+
+        const enrollment = course.enrollments.find(e =>
+            e.userId.toString() === targetUserId && e.completed
+        );
+
+        if (!enrollment) {
             return res.status(404).json({
                 success: false,
-                message: 'No valid certificate found for this ID.'
+                message: 'No completed enrollment found for this certificate ID.'
             });
         }
 
-        // Get the first completed enrollment (can be extended to support specific user)
-        const enrollment = completedEnrollments[0];
         const user = await User.findById(enrollment.userId).select('name email');
 
         if (!user) {
@@ -47,7 +65,7 @@ router.get('/verify/:id', async (req, res) => {
         res.status(200).json({
             success: true,
             data: {
-                certificateId: course._id,
+                certificateId: fullId,
                 userName: user.name,
                 userEmail: user.email,
                 courseTitle: course.title,

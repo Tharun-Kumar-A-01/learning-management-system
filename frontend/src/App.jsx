@@ -36,6 +36,13 @@ import VerifyCertificatePage from './pages/VerifyCertificatePage';
 import ForgotPasswordPage from './pages/auth/ForgotPasswordPage';
 import ResetPasswordPage from './pages/auth/ResetPasswordPage';
 
+// New Feature Pages
+import InboxPage from './pages/inbox/InboxPage';
+import AnalyticsPage from './pages/analytics/AnalyticsPage';
+import KnowledgeBasePage from './pages/knowledge/KnowledgeBasePage';
+import ArticleEditorPage from './pages/knowledge/ArticleEditorPage';
+import ArticleDetailsPage from './pages/knowledge/ArticleDetailsPage';
+
 // Role-based dashboard router
 const RoleBasedDashboard = () => {
   const { user } = useAuth();
@@ -365,6 +372,60 @@ export default function App() {
               element={
                 <ProtectedRoute>
                   <CertificatesPage />
+                </ProtectedRoute>
+              }
+            />
+
+            {/* Protected routes - Inbox */}
+            <Route
+              path="/inbox"
+              element={
+                <ProtectedRoute>
+                  <InboxPage />
+                </ProtectedRoute>
+              }
+            />
+
+            {/* Protected routes - Analytics */}
+            <Route
+              path="/analytics"
+              element={
+                <ProtectedRoute>
+                  <AnalyticsPage />
+                </ProtectedRoute>
+              }
+            />
+
+            {/* Protected routes - Knowledge Base */}
+            <Route
+              path="/knowledge"
+              element={
+                <ProtectedRoute>
+                  <KnowledgeBasePage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/knowledge/:id"
+              element={
+                <ProtectedRoute>
+                  <ArticleDetailsPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/knowledge/new"
+              element={
+                <ProtectedRoute allowedRoles={['trainer', 'admin', 'super_admin']}>
+                  <ArticleEditorPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/knowledge/:id/edit"
+              element={
+                <ProtectedRoute allowedRoles={['trainer', 'admin', 'super_admin']}>
+                  <ArticleEditorPage />
                 </ProtectedRoute>
               }
             />

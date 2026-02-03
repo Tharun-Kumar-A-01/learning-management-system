@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const User = require('../models/user');
+const LearningPolicy = require('../models/learningPolicy');
 const { protect } = require('../middleware/auth');
 const passwordResetRoutes = require('./passwordReset');
 
@@ -13,6 +14,16 @@ router.use('/', passwordResetRoutes);
 router.post('/register', async (req, res) => {
     try {
         const { name, email, password } = req.body;
+
+        // Check if registration is disabled
+        const registrationPolicy = await LearningPolicy.findOne({ name: 'User Registration Disabled' });
+        if (registrationPolicy && registrationPolicy.enabled && registrationPolicy.value === 'true') {
+            return res.status(403).json({
+                success: false,
+                message: 'New user registrations are currently disabled. Please contact an administrator.',
+                registrationDisabled: true
+            });
+        }
 
         // Check if user exists
         const userExists = await User.findOne({ email });
@@ -63,13 +74,14 @@ router.post('/create-user', protect, async (req, res) => {
             return res.status(400).json({ success: false, message: 'User already exists' });
         }
 
-        // Create user with specified role
+        // Create user with specified role and mark as admin-created
         const user = await User.create({
             name,
             email,
             password,
             role,
-            organizationId: req.user.organizationId
+            organizationId: req.user.organizationId,
+            createdByAdmin: req.user.id
         });
 
         res.status(201).json({
@@ -110,6 +122,15 @@ router.post('/login', async (req, res) => {
 
         if (!isMatch) {
             return res.status(401).json({ success: false, message: 'Invalid credentials' });
+        }
+
+        // Check if user account is active
+        if (!user.isActive) {
+            return res.status(403).json({
+                success: false,
+                message: 'Your account has been deactivated. Please contact an administrator.',
+                accountDeactivated: true
+            });
         }
 
         sendTokenResponse(user, 200, res);

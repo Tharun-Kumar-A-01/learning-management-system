@@ -433,7 +433,7 @@ export default function CourseDetailsPage() {
         // Certificate ID
         ctx.fillStyle = '#888888';
         ctx.font = '12px Arial';
-        ctx.fillText(`Certificate ID: ${course._id}`, canvas.width / 2, 600);
+        ctx.fillText(`Certificate ID: ${course._id}-${user?.id}`, canvas.width / 2, 600);
 
         // Download
         const link = document.createElement('a');
@@ -752,7 +752,7 @@ export default function CourseDetailsPage() {
                                                 <div className="max-w-md mx-auto mb-8 text-left bg-[#1a1a1a] border border-[#2a2a2a] rounded-xl p-5">
                                                     <div className="flex items-center gap-2 mb-3 text-amber-500 font-bold text-xs uppercase tracking-wider">
                                                         <ExclamationTriangleIcon className="w-4 h-4" />
-                                                        Assessment Rules
+                                                        Quiz Rules
                                                     </div>
                                                     <ul className="space-y-3">
                                                         <li className="flex items-start gap-3">
@@ -886,7 +886,7 @@ export default function CourseDetailsPage() {
                                                 )}
 
                                                 <h3 className="text-xl font-bold text-[#e4e4ea] mb-2">
-                                                    {quizResults?.passed ? 'Assessment Passed!' : 'Assessment Failed'}
+                                                    {quizResults?.passed ? 'Quiz Passed!' : 'Quiz Failed'}
                                                 </h3>
                                                 <div className="flex flex-col items-center gap-1 mb-6">
                                                     <div className="text-3xl font-black text-[#e4e4ea]">

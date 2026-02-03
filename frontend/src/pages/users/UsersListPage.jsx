@@ -3,7 +3,8 @@ import { Link } from 'react-router-dom';
 import { apiFetch } from '../../utils/api';
 import DashboardLayout from '../../components/layout/DashboardLayout';
 import { useAuth } from '../../context/AuthContext';
-import { PlusIcon, UsersIcon } from '@heroicons/react/24/outline';
+import { PlusIcon, UsersIcon, ArrowUpTrayIcon } from '@heroicons/react/24/outline';
+import ImportUsersModal from '../../components/users/ImportUsersModal';
 
 export default function UsersListPage() {
     const [users, setUsers] = useState([]);
@@ -11,6 +12,7 @@ export default function UsersListPage() {
     const [search, setSearch] = useState('');
     const [roleFilter, setRoleFilter] = useState('all');
     const [showAddModal, setShowAddModal] = useState(false);
+    const [showImportModal, setShowImportModal] = useState(false);
 
     useEffect(() => {
         fetchUsers();
@@ -86,13 +88,21 @@ export default function UsersListPage() {
                     <h1 className="text-3xl font-bold text-white">User Management</h1>
                     <p className="text-zinc-400 mt-2">Manage users and their roles</p>
                 </div>
-                <button
-                    onClick={() => setShowAddModal(true)}
-                    className="inline-flex items-center px-4 py-2 bg-indigo-500 hover:bg-indigo-600 text-black rounded-lg text-sm font-medium transition-colors"
-                >
-                    <PlusIcon className="w-4 h-4 mr-2" />
-                    Add User
-                </button>
+                <div className="flex gap-3">
+                    <button
+                        onClick={() => setShowImportModal(true)}
+                        className="px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-white rounded-lg text-sm font-medium transition-colors"
+                    >
+                        Import CSV
+                    </button>
+                    <button
+                        onClick={() => setShowAddModal(true)}
+                        className="inline-flex items-center px-4 py-2 bg-indigo-500 hover:bg-indigo-600 text-black rounded-lg text-sm font-medium transition-colors"
+                    >
+                        <PlusIcon className="w-4 h-4 mr-2" />
+                        Add User
+                    </button>
+                </div>
             </div>
 
             {/* Filters */}
@@ -111,7 +121,7 @@ export default function UsersListPage() {
                         <button
                             key={role}
                             onClick={() => setRoleFilter(role)}
-                            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${roleFilter === role
+                            className={`px-3 md:px-4 py-2 rounded-lg text-xs md:text-sm font-medium transition-colors whitespace-nowrap ${roleFilter === role
                                 ? 'bg-indigo-500 text-black'
                                 : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700'
                                 }`}
@@ -175,12 +185,12 @@ export default function UsersListPage() {
                                     </div>
                                 </td>
                                 <td className="py-4 px-6">
-                                    <span className={`px-3 py-1 rounded-full text-xs font-medium ${getRoleColor(user.role)}`}>
+                                    <span className={`px-2 md:px-3 py-0.5 md:py-1 rounded-full text-[10px] md:text-xs font-medium whitespace-nowrap ${getRoleColor(user.role)}`}>
                                         {getRoleLabel(user.role)}
                                     </span>
                                 </td>
                                 <td className="py-4 px-6">
-                                    <span className={`px-3 py-1 rounded-full text-xs font-medium ${user.isActive !== false
+                                    <span className={`px-2 md:px-3 py-0.5 md:py-1 rounded-full text-[10px] md:text-xs font-medium ${user.isActive !== false
                                         ? 'bg-green-500/20 text-green-400'
                                         : 'bg-red-500/20 text-red-400'
                                         }`}>
@@ -228,6 +238,17 @@ export default function UsersListPage() {
                     onClose={() => setShowAddModal(false)}
                     onSuccess={() => {
                         setShowAddModal(false);
+                        fetchUsers();
+                    }}
+                />
+            )}
+
+            {/* Import Users Modal */}
+            {showImportModal && (
+                <ImportUsersModal
+                    onClose={() => setShowImportModal(false)}
+                    onSuccess={() => {
+                        setShowImportModal(false);
                         fetchUsers();
                     }}
                 />

@@ -1,3 +1,5 @@
+// COURSE BACKEND
+
 const express = require('express');
 const router = express.Router();
 const Course = require('../models/course');
@@ -91,11 +93,12 @@ router.get('/', protect, async (req, res) => {
 // @access  Private
 router.get('/enrolled', protect, async (req, res) => {
     try {
+        const { completedOnly } = req.query;
         const courses = await Course.find({
             'enrollments.userId': req.user.id
         }).populate('createdBy', 'name');
 
-        const enrolledCourses = courses.map(course => {
+        let enrolledCourses = courses.map(course => {
             const courseObj = course.toObject();
             const enrollment = course.enrollments.find(
                 e => e.userId.toString() === req.user.id
@@ -107,6 +110,11 @@ router.get('/enrolled', protect, async (req, res) => {
             delete courseObj.enrollments;
             return courseObj;
         });
+
+        // Filter by completion if requested
+        if (completedOnly === 'true') {
+            enrolledCourses = enrolledCourses.filter(course => (course.completed || course.progress === 100) && course.certificateEnabled !== false);
+        }
 
         res.status(200).json({ success: true, data: enrolledCourses });
     } catch (err) {
@@ -293,6 +301,88 @@ router.post('/:id/enroll', protect, authorize('learner'), async (req, res) => {
         await course.save();
 
         res.status(200).json({ success: true, message: 'Enrolled successfully' });
+    } catch (err) {
+        res.status(500).json({ success: false, message: err.message });
+    }
+});
+
+// @desc    Manual enrollment by admin (with deadline)
+// @route   POST /api/courses/:id/manual-enroll
+// @access  Private (Admin, Super Admin)
+router.post('/:id/manual-enroll', protect, authorize('admin', 'super_admin'), async (req, res) => {
+    try {
+        const { userIds, deadlineDays, isMandatory = true } = req.body;
+
+        if (!userIds || !Array.isArray(userIds) || userIds.length === 0) {
+            return res.status(400).json({ success: false, message: 'Please provide user IDs' });
+        }
+
+        if (!deadlineDays || deadlineDays < 1) {
+            return res.status(400).json({ success: false, message: 'Please provide valid deadline days' });
+        }
+
+        const course = await Course.findById(req.params.id);
+
+        if (!course) {
+            return res.status(404).json({ success: false, message: 'Course not found' });
+        }
+
+        const results = {
+            enrolled: [],
+            alreadyEnrolled: [],
+            failed: []
+        };
+
+        // Calculate deadline date
+        const deadlineDate = new Date();
+        deadlineDate.setDate(deadlineDate.getDate() + parseInt(deadlineDays));
+
+        for (const userId of userIds) {
+            try {
+                // Check if already enrolled
+                const existingEnrollment = course.enrollments.find(
+                    e => e.userId.toString() === userId
+                );
+
+                if (existingEnrollment) {
+                    results.alreadyEnrolled.push(userId);
+                    continue;
+                }
+
+                // Add enrollment with deadline
+                course.enrollments.push({
+                    userId,
+                    deadline: deadlineDate,
+                    isMandatory,
+                    enrolledBy: req.user.id
+                });
+
+                results.enrolled.push(userId);
+            } catch (err) {
+                results.failed.push({ userId, reason: err.message });
+            }
+        }
+
+        await course.save();
+
+        // Create notifications for enrolled users (import notifications helper)
+        const { createNotification } = require('./notifications');
+        for (const userId of results.enrolled) {
+            await createNotification(
+                userId,
+                'enrollment',
+                `Enrolled in: ${course.title}`,
+                `You have been enrolled in "${course.title}". Deadline: ${deadlineDate.toLocaleDateString()}. ${isMandatory ? 'This is a mandatory course.' : ''}`,
+                `/courses/${course._id}`
+            );
+        }
+
+        res.status(200).json({
+            success: true,
+            data: results,
+            deadline: deadlineDate,
+            message: `Enrolled ${results.enrolled.length} users, ${results.alreadyEnrolled.length} already enrolled, ${results.failed.length} failed`
+        });
     } catch (err) {
         res.status(500).json({ success: false, message: err.message });
     }

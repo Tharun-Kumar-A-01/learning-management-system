@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { apiFetch } from '../../utils/api';
 import DashboardLayout from '../../components/layout/DashboardLayout';
+import ManualEnrollModal from '../../components/courses/ManualEnrollModal';
 import { useAuth } from '../../context/AuthContext';
 import {
     BookOpenIcon,
@@ -17,7 +18,8 @@ import {
     PencilSquareIcon,
     EyeIcon,
     TrashIcon,
-    PlayIcon
+    PlayIcon,
+    UserPlusIcon
 } from '@heroicons/react/24/outline';
 
 // Helper function for progress colors
@@ -33,6 +35,7 @@ export default function CoursesListPage() {
     const [loading, setLoading] = useState(true);
     const [search, setSearch] = useState('');
     const [filter, setFilter] = useState('all');
+    const [enrollModal, setEnrollModal] = useState({ isOpen: false, courseId: null, courseTitle: '' });
     const { user } = useAuth();
 
     const isTrainerOrAdmin = ['trainer', 'admin', 'super_admin'].includes(user?.role);
@@ -180,7 +183,7 @@ export default function CoursesListPage() {
         // Certificate ID and verification
         ctx.fillStyle = '#888888';
         ctx.font = '12px Arial';
-        ctx.fillText(`Certificate ID: ${course._id}`, canvas.width / 2, 600);
+        ctx.fillText(`Certificate ID: ${course._id}-${user?.id}`, canvas.width / 2, 600);
 
         const link = document.createElement('a');
         link.download = `certificate-${course.title.replace(/[^a-z0-9]/gi, '-').toLowerCase()}.png`;
@@ -330,9 +333,9 @@ export default function CoursesListPage() {
                                                 {Math.round(course.progress || 0)}%
                                             </span>
                                         </div>
-                                        <div className="h-1.5 bg-[#0e0e0e] rounded-full overflow-hidden">
+                                        <div className="h-2 bg-black rounded-full overflow-hidden border border-white/5">
                                             <div
-                                                className="h-full rounded-full transition-all"
+                                                className="h-full rounded-full transition-all duration-500 ease-out"
                                                 style={{
                                                     width: `${course.progress || 0}%`,
                                                     backgroundColor: getProgressColor(course.progress || 0)
@@ -390,7 +393,7 @@ export default function CoursesListPage() {
                                     ) : isTrainerOrAdmin ? (
                                         <div className="flex flex-col gap-2">
                                             <div className="flex gap-2">
-                                                {course.status === 'draft' && (
+                                                {course.status === 'draft' ? (
                                                     <button
                                                         onClick={() => handlePublish(course._id)}
                                                         className="w-full flex items-center justify-center gap-1.5 px-3 py-2.5 bg-[#5dff4f] text-[#0e0e0e] text-xs font-semibold rounded-lg hover:bg-[#4de63e] transition-colors"
@@ -398,7 +401,17 @@ export default function CoursesListPage() {
                                                         <ArrowUpOnSquareIcon className="w-4 h-4" />
                                                         Publish Course
                                                     </button>
+                                                ) : (
+                                                    <button
+                                                        onClick={() => setEnrollModal({ isOpen: true, courseId: course._id, courseTitle: course.title })}
+                                                        className="w-full flex items-center justify-center gap-1.5 px-3 py-2.5 bg-[#5f82f3] text-black text-xs font-semibold rounded-lg hover:bg-[#4a6fd3] transition-colors"
+                                                    >
+                                                        <UserPlusIcon className="w-4 h-4" />
+                                                        Manual Enroll
+                                                    </button>
                                                 )}
+                                            </div>
+                                            <div className="flex gap-2">
                                                 <Link
                                                     to={`/courses/${course._id}/edit`}
                                                     className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2.5 bg-primary text-black text-xs font-medium rounded-lg hover:bg-[#4a6fd3] transition-colors"
@@ -428,6 +441,15 @@ export default function CoursesListPage() {
                     ))}
                 </div>
             )}
+
+            {/* Manual Enroll Modal */}
+            <ManualEnrollModal
+                isOpen={enrollModal.isOpen}
+                onClose={() => setEnrollModal({ ...enrollModal, isOpen: false })}
+                courseId={enrollModal.courseId}
+                courseTitle={enrollModal.courseTitle}
+            />
         </DashboardLayout>
     );
 }
+
