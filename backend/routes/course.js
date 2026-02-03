@@ -3,7 +3,9 @@
 const express = require('express');
 const router = express.Router();
 const Course = require('../models/course');
+const User = require('../models/user');
 const { protect, authorize } = require('../middleware/auth');
+const { sendNotificationEmail } = require('../utils/emailService');
 
 // @desc    Get all courses
 // @route   GET /api/courses
@@ -55,6 +57,8 @@ router.get('/', protect, async (req, res) => {
             );
             courseObj.isEnrolled = !!enrollment;
             courseObj.progress = enrollment ? enrollment.progress : 0;
+            courseObj.deadline = enrollment ? enrollment.deadline : null;
+            courseObj.isMandatory = enrollment ? enrollment.isMandatory : false;
 
             // Hide sensitive content for non-enrolled/non-owners
             const canSeeSensitive = courseObj.isEnrolled ||
@@ -145,6 +149,8 @@ router.get('/:id', protect, async (req, res) => {
         courseObj.completedLessons = enrollment ? enrollment.completedLessons : [];
         courseObj.quizResults = enrollment ? enrollment.quizResults : [];
         courseObj.assessmentResults = enrollment ? enrollment.assessmentResults : [];
+        courseObj.deadline = enrollment ? enrollment.deadline : null;
+        courseObj.isMandatory = enrollment ? enrollment.isMandatory : false;
 
         // Hide sensitive content for non-enrolled/non-owners
         const canSeeSensitive = courseObj.isEnrolled ||
@@ -311,14 +317,10 @@ router.post('/:id/enroll', protect, authorize('learner'), async (req, res) => {
 // @access  Private (Admin, Super Admin)
 router.post('/:id/manual-enroll', protect, authorize('admin', 'super_admin'), async (req, res) => {
     try {
-        const { userIds, deadlineDays, isMandatory = true } = req.body;
+        const { userIds, deadline, deadlineDays, isMandatory = true } = req.body;
 
         if (!userIds || !Array.isArray(userIds) || userIds.length === 0) {
             return res.status(400).json({ success: false, message: 'Please provide user IDs' });
-        }
-
-        if (!deadlineDays || deadlineDays < 1) {
-            return res.status(400).json({ success: false, message: 'Please provide valid deadline days' });
         }
 
         const course = await Course.findById(req.params.id);
@@ -333,9 +335,14 @@ router.post('/:id/manual-enroll', protect, authorize('admin', 'super_admin'), as
             failed: []
         };
 
-        // Calculate deadline date
-        const deadlineDate = new Date();
-        deadlineDate.setDate(deadlineDate.getDate() + parseInt(deadlineDays));
+        // Calculate deadline date if provided
+        let deadlineDate = null;
+        if (deadline) {
+            deadlineDate = new Date(deadline);
+        } else if (deadlineDays && deadlineDays >= 1) {
+            deadlineDate = new Date();
+            deadlineDate.setDate(deadlineDate.getDate() + parseInt(deadlineDays));
+        }
 
         for (const userId of userIds) {
             try {
@@ -365,23 +372,42 @@ router.post('/:id/manual-enroll', protect, authorize('admin', 'super_admin'), as
 
         await course.save();
 
-        // Create notifications for enrolled users (import notifications helper)
-        const { createNotification } = require('./notifications');
-        for (const userId of results.enrolled) {
-            await createNotification(
-                userId,
-                'enrollment',
-                `Enrolled in: ${course.title}`,
-                `You have been enrolled in "${course.title}". Deadline: ${deadlineDate.toLocaleDateString()}. ${isMandatory ? 'This is a mandatory course.' : ''}`,
-                `/courses/${course._id}`
-            );
-        }
-
+        // Send response immediately - don't wait for notifications/emails
         res.status(200).json({
             success: true,
             data: results,
             deadline: deadlineDate,
             message: `Enrolled ${results.enrolled.length} users, ${results.alreadyEnrolled.length} already enrolled, ${results.failed.length} failed`
+        });
+
+        // Send notifications and emails in background (non-blocking)
+        const { createNotification } = require('./notifications');
+        setImmediate(async () => {
+            for (const userId of results.enrolled) {
+                try {
+                    const deadlineMsg = deadlineDate ? ` Deadline: ${deadlineDate.toLocaleDateString()}.` : '';
+                    // Create inbox notification
+                    await createNotification(
+                        userId,
+                        'enrollment',
+                        `Enrolled in: ${course.title}`,
+                        `You have been enrolled in "${course.title}".${deadlineMsg} ${isMandatory ? 'This is a mandatory course.' : ''}`,
+                        `/courses/${course._id}`
+                    );
+
+                    // Send email with proper course data
+                    const enrolledUser = await User.findById(userId);
+                    if (enrolledUser) {
+                        await sendNotificationEmail(enrolledUser, 'enrollment', {
+                            courseName: course.title,
+                            deadline: deadlineDate,
+                            isMandatory
+                        });
+                    }
+                } catch (err) {
+                    console.error(`Failed to send notification/email to user ${userId}:`, err.message);
+                }
+            }
         });
     } catch (err) {
         res.status(500).json({ success: false, message: err.message });
@@ -1010,6 +1036,11 @@ router.delete('/:id/enroll', protect, authorize('learner'), async (req, res) => 
         // Prevent unenroll if course is completed
         if (enrollment.completed || enrollment.progress >= 100) {
             return res.status(400).json({ success: false, message: 'Cannot unenroll from a completed course' });
+        }
+
+        // Prevent unenroll if course is mandatory
+        if (enrollment.isMandatory) {
+            return res.status(400).json({ success: false, message: 'Cannot unenroll from a mandatory course' });
         }
 
         course.enrollments.splice(enrollmentIndex, 1);

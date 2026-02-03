@@ -109,6 +109,10 @@ const EnrollmentSchema = new mongoose.Schema({
         type: Boolean,
         default: false
     },
+    remindersSent: [{
+        type: String,
+        enum: ['3day', '1day']
+    }],
     enrolledBy: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'User',

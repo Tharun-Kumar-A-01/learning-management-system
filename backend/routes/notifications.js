@@ -115,7 +115,8 @@ router.delete('/:id', protect, async (req, res) => {
 });
 
 // Helper function to create and send notification
-const createNotification = async (recipientId, type, title, message, link = null) => {
+// emailData is optional extra data for specific email types (e.g., courseName, deadline for enrollment/deadline emails)
+const createNotification = async (recipientId, type, title, message, link = null, emailData = null) => {
     try {
         // Create in-app notification
         const notification = await Notification.create({
@@ -129,7 +130,9 @@ const createNotification = async (recipientId, type, title, message, link = null
         // Try to send email notification
         const user = await User.findById(recipientId);
         if (user && user.emailAlertsEnabled) {
-            const emailSent = await sendNotificationEmail(user, type, { title, message });
+            // Use emailData if provided, otherwise fallback to title/message
+            const data = emailData || { title, message };
+            const emailSent = await sendNotificationEmail(user, type, data);
             if (emailSent) {
                 notification.emailSent = true;
                 await notification.save();

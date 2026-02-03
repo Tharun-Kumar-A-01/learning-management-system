@@ -19,7 +19,8 @@ import {
     EyeIcon,
     TrashIcon,
     PlayIcon,
-    UserPlusIcon
+    UserPlusIcon,
+    ClockIcon
 } from '@heroicons/react/24/outline';
 
 // Helper function for progress colors
@@ -282,10 +283,15 @@ export default function CoursesListPage() {
                                 {/* Title & Tags */}
                                 <div className="flex items-start justify-between gap-2 mb-2">
                                     <h3 className="text-sm font-medium text-[#e4e4ea] line-clamp-1 flex-1">{course.title}</h3>
-                                    <div className="flex items-center gap-1 flex-shrink-0">
+                                    <div className="flex items-center gap-1 flex-shrink-0 flex-wrap">
                                         {isTrainerOrAdmin && course.status === 'draft' && (
                                             <span className="flex items-center gap-1 px-2 py-0.5 text-xs rounded bg-[#ffb84d]/10 text-[#ffb84d]">
                                                 Draft
+                                            </span>
+                                        )}
+                                        {course.isMandatory && (
+                                            <span className="flex items-center gap-1 px-2 py-0.5 text-xs rounded bg-[#ffb84d]/20 text-[#ffb84d] border border-[#ffb84d]/30">
+                                                Mandatory
                                             </span>
                                         )}
                                         <span className={`px-2 py-0.5 text-xs rounded ${course.difficulty === 'beginner' ? 'bg-[#5dff4f]/10 text-[#5dff4f]' :
@@ -323,6 +329,22 @@ export default function CoursesListPage() {
                                         {course.enrolledCount || 0} enrolled
                                     </span>
                                 </div>
+
+                                {/* Deadline days remaining - positioned prominently */}
+                                {course.isEnrolled && course.deadline && (() => {
+                                    const daysLeft = Math.ceil((new Date(course.deadline) - new Date()) / (1000 * 60 * 60 * 24));
+                                    const isPast = daysLeft < 0;
+                                    const isUrgent = daysLeft <= 5 && daysLeft >= 0;
+                                    return (
+                                        <div className={`text-xs mb-3 flex items-center gap-1.5 px-2 py-1 rounded-md ${isPast ? 'bg-red-500/10 text-red-500' : isUrgent ? 'bg-red-500/10 text-red-500' : 'bg-[#2a2a2a] text-[#888]'}`}>
+                                            <ClockIcon className="w-3.5 h-3.5" />
+                                            {isPast
+                                                ? `Deadline passed (${Math.abs(daysLeft)} day${Math.abs(daysLeft) !== 1 ? 's' : ''} ago)`
+                                                : `${daysLeft} day${daysLeft !== 1 ? 's' : ''} left`
+                                            }
+                                        </div>
+                                    );
+                                })()}
 
                                 {/* Progress bar for enrolled courses */}
                                 {course.isEnrolled && (

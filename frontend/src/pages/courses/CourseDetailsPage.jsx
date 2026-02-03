@@ -479,6 +479,38 @@ export default function CourseDetailsPage() {
 
     return (
         <DashboardLayout>
+            {/* Deadline Warning Banner */}
+            {isLearner && course.deadline && (
+                (() => {
+                    const daysLeft = Math.ceil((new Date(course.deadline) - new Date()) / (1000 * 60 * 60 * 24));
+                    const isUpcoming = daysLeft >= 0 && daysLeft <= 7;
+                    const isPast = daysLeft < 0;
+
+                    if (isUpcoming || isPast) {
+                        return (
+                            <div className={`mb-6 p-4 rounded-lg flex items-center gap-3 border ${isPast
+                                ? 'bg-red-500/10 border-red-500/50 text-red-500'
+                                : 'bg-amber-500/10 border-amber-500/50 text-amber-500'
+                                }`}>
+                                <ExclamationTriangleSolid className="w-6 h-6 flex-shrink-0" />
+                                <div>
+                                    <p className="font-bold text-sm">
+                                        {isPast ? 'Deadline Passed!' : 'Approaching Deadline!'}
+                                    </p>
+                                    <p className="text-xs opacity-90">
+                                        {isPast
+                                            ? `This course was due on ${new Date(course.deadline).toLocaleDateString()}. Please complete it as soon as possible.`
+                                            : `You have ${daysLeft} ${daysLeft === 1 ? 'day' : 'days'} left to complete this course (Due: ${new Date(course.deadline).toLocaleDateString()}).`
+                                        }
+                                    </p>
+                                </div>
+                            </div>
+                        );
+                    }
+                    return null;
+                })()
+            )}
+
             {/* Header */}
             <div className="mb-6">
                 <button
@@ -501,6 +533,11 @@ export default function CourseDetailsPage() {
                     <div>
                         <div className="flex items-center gap-2 mb-1">
                             <h1 className="text-xl font-semibold text-[#e4e4ea]">{course.title}</h1>
+                            {course.isMandatory && (
+                                <span className="flex items-center gap-1 px-2 py-0.5 text-xs rounded bg-indigo-500/20 text-[#5f82f3] border border-indigo-500/30">
+                                    Mandatory
+                                </span>
+                            )}
                             {canPublish && (
                                 <span className="flex items-center gap-1 px-2 py-0.5 text-xs rounded bg-[#ffb84d]/10 text-[#ffb84d]">
                                     Draft
@@ -513,6 +550,12 @@ export default function CourseDetailsPage() {
                                 <BookOpenIcon className="w-4 h-4" />
                                 {course.modules?.length || 0} modules
                             </span>
+                            {course.deadline && (
+                                <span className="flex items-center gap-1 text-amber-500">
+                                    <ClockIcon className="w-4 h-4" />
+                                    Deadline: {new Date(course.deadline).toLocaleDateString()}
+                                </span>
+                            )}
                             {/* <span className="flex items-center gap-1">
                                 <ClockIcon className="w-4 h-4" />
                                 {course.duration || 0} min
@@ -562,7 +605,7 @@ export default function CourseDetailsPage() {
                                 Enroll Now
                             </button>
                         )}
-                        {isLearner && course.isEnrolled && progress < 100 && (
+                        {isLearner && course.isEnrolled && progress < 100 && !course.isMandatory && (
                             <button
                                 onClick={() => setShowUnenrollDialog(true)}
                                 className="flex items-center gap-1.5 px-4 py-2 bg-[#ff4848]/10 text-[#ff4848] text-sm rounded-lg hover:bg-[#ff4848]/20 transition-colors"
@@ -570,6 +613,12 @@ export default function CourseDetailsPage() {
                                 <TrashIcon className="w-4 h-4" />
                                 Unenroll
                             </button>
+                        )}
+                        {isLearner && course.isEnrolled && progress < 100 && course.isMandatory && (
+                            <div className="flex items-center gap-1.5 px-4 py-2 bg-white/5 text-[#666] text-sm rounded-lg cursor-not-allowed border border-white/5" title="Mandatory courses cannot be unenrolled">
+                                <XMarkSolid className="w-4 h-4" />
+                                Mandatory Course
+                            </div>
                         )}
                         {isLearner && course.isEnrolled && progress === 100 && course.certificateEnabled !== false && (
                             <button
@@ -761,40 +810,41 @@ export default function CourseDetailsPage() {
                                                                 <span className="text-[#e4e4ea] font-medium">Passing Criteria: </span> <span className="text-white font-bold">{currentLesson.passingPercentage || 70}%</span>
                                                             </div>
                                                         </li>
-                                                        <li className="flex items-start gap-3">
-                                                            <div className="w-1.5 h-1.5 rounded-full bg-white/50 mt-1.5 flex-shrink-0" />
-                                                            <div className="text-xs text-[#888]">
-                                                                {currentLesson.timeLimit > 0 ? (
+                                                        {currentLesson.timeLimit > 0 ? (
+                                                            <li className="flex items-start gap-3">
+                                                                <div className="w-1.5 h-1.5 rounded-full bg-white/50 mt-1.5 flex-shrink-0" />
+                                                                <div className="text-xs text-[#888]">
                                                                     <span className="text-[#e4e4ea] font-medium">Time Limit: <span className="text-white font-bold">{currentLesson.timeLimit} minutes</span></span>
-                                                                ) : (
-                                                                    <></>
-                                                                )}
-                                                            </div>
-                                                        </li>
-                                                        <li className="flex items-start gap-3">
-                                                            <div className="w-1.5 h-1.5 rounded-full bg-white/50 mt-1.5 flex-shrink-0" />
-                                                            <div className="text-xs text-[#888]">
-                                                                {currentLesson.questions?.length > 0 ? (
+                                                                </div>
+                                                            </li>
+                                                        ) : (
+                                                            <></>
+                                                        )}
+                                                        {currentLesson.questions?.length > 0 ? (
+                                                            <li className="flex items-start gap-3">
+                                                                <div className="w-1.5 h-1.5 rounded-full bg-white/50 mt-1.5 flex-shrink-0" />
+                                                                <div className="text-xs text-[#888]">
                                                                     <span className="text-[#e4e4ea] font-medium">Questions: <span className="text-white font-bold">{currentLesson.questions?.length || 0}</span></span>
-                                                                ) : (
-                                                                    <></>
-                                                                )}
-                                                            </div>
-                                                        </li>
-                                                        <li className="flex items-start gap-3">
-                                                            <div className="w-1.5 h-1.5 rounded-full bg-white/50 mt-1.5 flex-shrink-0" />
-                                                            <div className="text-xs text-[#888]">
-                                                                <span className="text-[#e4e4ea] font-medium">Attempts:</span> {currentLesson.maxAttempts > 0 ? (
+                                                                </div>
+                                                            </li>
+                                                        ) : (
+                                                            <></>
+                                                        )}
+                                                        {currentLesson.maxAttempts > 0 ? (
+                                                            <li className="flex items-start gap-3">
+                                                                <div className="w-1.5 h-1.5 rounded-full bg-white/50 mt-1.5 flex-shrink-0" />
+                                                                <div className="text-xs text-[#888]">
+                                                                    <span className="text-[#e4e4ea] font-medium">Attempts:</span>
                                                                     <span>Max: <span className="text-white font-bold">{currentLesson.maxAttempts}</span> {quizResults?.attemptsLeft !== undefined ? (
                                                                         <span>Remaining: <span className="text-amber-500 font-bold">{quizResults.attemptsLeft}</span></span>
                                                                     ) : (
                                                                         <span><br />Ensure you are ready before starting.</span>
                                                                     )}</span>
-                                                                ) : (
-                                                                    <></>
-                                                                )}
-                                                            </div>
-                                                        </li>
+                                                                </div>
+                                                            </li>
+                                                        ) : (
+                                                            <></>
+                                                        )}
                                                     </ul>
                                                 </div>
 

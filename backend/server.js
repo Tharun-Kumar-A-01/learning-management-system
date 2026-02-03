@@ -32,6 +32,9 @@ mongoose.connect(process.env.MONGO_URI)
             });
             console.log('Default super admin created: super_admin@lms.com');
         }
+
+        // Initialize deadline reminder scheduler
+        require('./utils/deadlineScheduler');
     })
     .catch(err => console.error('MongoDB connection error:', err));
 
