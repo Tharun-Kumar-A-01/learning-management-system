@@ -1,4 +1,10 @@
-export const API_URL = 'http://localhost:5000/api';
+// Production URL - change this before building for deployment
+const PRODUCTION_API_URL = 'https://learning-management-system-w8ob.onrender.com/api';
+
+// Development uses localhost, production build uses the URL above
+export const API_URL = import.meta.env.DEV
+    ? 'http://localhost:5000/api'
+    : PRODUCTION_API_URL;
 
 /**
  * Wrapper for the native fetch API

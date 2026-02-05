@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { Input } from '../../components/ui/TextInput';
 import { Button } from '../../components/ui/Button';
 import { EnvelopeIcon, ArrowLeftIcon, CheckCircleIcon } from '@heroicons/react/24/outline';
+import { API_URL } from '../../utils/api';
 
 export default function ForgotPasswordPage() {
     const [email, setEmail] = useState('');
@@ -16,7 +17,7 @@ export default function ForgotPasswordPage() {
         setError('');
 
         try {
-            const res = await fetch('http://localhost:5000/api/auth/forgot-password', {
+            const res = await fetch(`${API_URL}/auth/forgot-password`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'

@@ -6,7 +6,7 @@ import {
     XCircleIcon,
     AcademicCapIcon
 } from '@heroicons/react/24/outline';
-import { apiFetch } from '../utils/api';
+import { API_URL } from '../utils/api';
 
 export default function VerifyCertificatePage() {
     const [certificateId, setCertificateId] = useState('');
@@ -23,7 +23,7 @@ export default function VerifyCertificatePage() {
         setError('');
 
         try {
-            const res = await fetch(`http://localhost:5000/api/certificates/verify/${certificateId}`);
+            const res = await fetch(`${API_URL}/certificates/verify/${certificateId}`);
             const data = await res.json();
 
             if (data.success) {

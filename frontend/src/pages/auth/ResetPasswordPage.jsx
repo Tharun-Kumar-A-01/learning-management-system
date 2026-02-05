@@ -3,6 +3,7 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import { Input } from '../../components/ui/TextInput';
 import { Button } from '../../components/ui/Button';
 import { LockClosedIcon, ArrowLeftIcon, CheckCircleIcon, ExclamationTriangleIcon } from '@heroicons/react/24/outline';
+import { API_URL } from '../../utils/api';
 
 export default function ResetPasswordPage() {
     const { token } = useParams();
@@ -30,7 +31,7 @@ export default function ResetPasswordPage() {
         setLoading(true);
 
         try {
-            const res = await fetch(`http://localhost:5000/api/auth/reset-password/${token}`, {
+            const res = await fetch(`${API_URL}/auth/reset-password/${token}`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
