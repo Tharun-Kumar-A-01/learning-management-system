@@ -1,4 +1,4 @@
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, Link } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { useBranding } from './hooks/useBranding';
 import Navbar from './components/layout/Navbar';
@@ -133,19 +133,19 @@ const LandingPage = () => {
               {settings.tagline}
             </p>
             <div className="mt-10 flex justify-center gap-4">
-              <a
-                href="/register"
+              <Link
+                to="/register"
                 className="px-8 py-3 text-black rounded-lg text-lg font-medium transition-colors hover:opacity-90"
                 style={{ backgroundColor: settings.primaryColor }}
               >
                 Get Started
-              </a>
-              <a
-                href="/login"
+              </Link>
+              <Link
+                to="/login"
                 className="px-8 py-3 bg-zinc-800 hover:bg-zinc-700 text-white rounded-lg text-lg font-medium transition-colors border border-white/10"
               >
                 Sign In
-              </a>
+              </Link>
             </div>
           </div>
         </div>
