@@ -1,5 +1,5 @@
 // Production URL - change this before building for deployment
-const PRODUCTION_API_URL = 'https://learning-management-system-w8ob.onrender.com/api';
+const PRODUCTION_API_URL = 'https://learning-management-system-team-48.up.railway.app/api';
 
 // Development uses localhost, production build uses the URL above
 export const API_URL = import.meta.env.DEV
