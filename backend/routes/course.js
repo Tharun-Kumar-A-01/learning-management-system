@@ -4,6 +4,9 @@ const Course = require('../models/course');
 const User = require('../models/user');
 const { protect, authorize } = require('../middleware/auth');
 const { sendNotificationEmail } = require('../utils/emailService');
+const { createNotification } = require('../models/notification');
+const Certificate = require('../models/certificate');
+const crypto = require('crypto');
 
 // @desc    Get all courses
 // @route   GET /api/courses
@@ -706,6 +709,39 @@ router.put('/:id/quiz/:lessonId/appeal/:userId', protect, authorize('trainer', '
         // Let's stick to modifying the logic in the submit route to check for "approved appeal".
 
         await course.save();
+
+        // Send notification to learner
+        const { createNotification } = require('./notifications');
+        try {
+            await createNotification(
+                enrollment.userId,
+                'appeal_update',
+                `Appeal Status Update: ${course.title}`,
+                `Your appeal for quiz "${lessonId}" in course "${course.title}" has been ${status}. ${comment ? `Comment: ${comment}` : ''}`,
+                `/courses/${course._id}`
+            );
+
+            // Send Email
+            const user = await User.findById(userId);
+            if (user) {
+                // Find lesson title if possible, otherwise use ID
+                let lessonTitle = lessonId;
+                course.modules.forEach(m => {
+                    const l = m.lessons.find(l => l._id.toString() === lessonId);
+                    if (l) lessonTitle = l.title;
+                });
+
+                await sendNotificationEmail(user, 'appeal_update', {
+                    courseName: course.title,
+                    lessonTitle: lessonTitle,
+                    status: status,
+                    comment: comment
+                });
+            }
+
+        } catch (err) {
+            console.error('Failed to send appeal notification:', err);
+        }
         res.json({ success: true, data: quizResult.appeal });
     } catch (err) {
         res.status(500).json({ success: false, message: err.message });
@@ -832,6 +868,14 @@ router.put('/:id/assessment/:lessonId/grade/:userId', protect, authorize('traine
             if (l) targetLesson = l;
         });
 
+        // Grading Lock Check
+        // If already passed or failed, prevent re-grading unless there is an active appeal (approved or pending)
+        // If appeal is 'approved', it means they are allowed to be re-graded.
+        if ((assessmentResult.status === 'passed' || assessmentResult.status === 'failed') &&
+            (!assessmentResult.appeal || (assessmentResult.appeal.status !== 'approved' && assessmentResult.appeal.status !== 'pending'))) {
+            return res.status(400).json({ success: false, message: 'Assessment already graded. Cannot overwrite unless appealed.' });
+        }
+
         const passingPercentage = targetLesson?.passingPercentage || 70;
         const isPassed = score >= passingPercentage;
 
@@ -839,6 +883,12 @@ router.put('/:id/assessment/:lessonId/grade/:userId', protect, authorize('traine
         assessmentResult.feedback = feedback;
         assessmentResult.isPassed = isPassed;
         assessmentResult.status = isPassed ? 'passed' : 'failed';
+
+        // If re-graded due to appeal, update appeal status to resolved
+        if (assessmentResult.appeal && (assessmentResult.appeal.status === 'approved' || assessmentResult.appeal.status === 'pending')) {
+            assessmentResult.appeal.status = 'resolved';
+            assessmentResult.appeal.resolvedAt = new Date();
+        }
 
         // If passed, mark lesson as complete
         if (isPassed && !enrollment.completedLessons.includes(lessonId)) {
@@ -851,10 +901,55 @@ router.put('/:id/assessment/:lessonId/grade/:userId', protect, authorize('traine
             if (enrollment.progress === 100) {
                 enrollment.completed = true;
                 enrollment.completedAt = new Date();
+
+                // Generate Certificate
+                try {
+                    const existingCert = await Certificate.findOne({ user: enrollment.userId, course: course._id });
+                    if (!existingCert) {
+                        const certificateId = crypto.randomBytes(8).toString('hex').toUpperCase();
+                        await Certificate.create({
+                            certificateId,
+                            user: enrollment.userId,
+                            course: course._id,
+                            issueDate: new Date(),
+                            grade: score // Tracking final assessment score as the "grade" for now
+                        });
+                        // Could add a notification for certificate here too
+                    }
+                } catch (certErr) {
+                    console.error('Error generating certificate:', certErr);
+                }
             }
         }
 
         await course.save();
+
+        // Send notification to learner
+        const { createNotification } = require('./notifications');
+        try {
+            await createNotification(
+                enrollment.userId,
+                'grading',
+                `Assessment Graded: ${course.title}`,
+                `Your assessment for "${targetLesson ? targetLesson.title : 'lesson'}" in course "${course.title}" has been graded. Status: ${isPassed ? 'Passed' : 'Failed'} (${score}%). ${feedback ? `Feedback: ${feedback}` : ''}`,
+                `/courses/${course._id}`
+            );
+
+            // Send Email
+            const user = await User.findById(userId);
+            if (user) {
+                await sendNotificationEmail(user, 'grading', {
+                    courseName: course.title,
+                    lessonTitle: targetLesson ? targetLesson.title : 'Assessment',
+                    score: score,
+                    passed: isPassed,
+                    feedback: feedback
+                });
+            }
+
+        } catch (err) {
+            console.error('Failed to send grading notification:', err);
+        }
         res.json({ success: true, data: assessmentResult });
     } catch (err) {
         res.status(500).json({ success: false, message: err.message });
@@ -931,6 +1026,37 @@ router.put('/:id/assessment/:lessonId/appeal/:userId', protect, authorize('train
         }
 
         await course.save();
+
+        // Send notification to learner
+        const { createNotification } = require('./notifications');
+        try {
+            await createNotification(
+                enrollment.userId,
+                'appeal_update',
+                `Appeal Status Update: ${course.title}`,
+                `Your appeal for assessment "${lessonId}" in course "${course.title}" has been ${status}. ${comment ? `Comment: ${comment}` : ''}`,
+                `/courses/${course._id}`
+            );
+
+            // Send Email
+            const user = await User.findById(userId);
+            if (user) {
+                let lessonTitle = lessonId;
+                course.modules.forEach(m => {
+                    const l = m.lessons.find(l => l._id.toString() === lessonId);
+                    if (l) lessonTitle = l.title;
+                });
+
+                await sendNotificationEmail(user, 'appeal_update', {
+                    courseName: course.title,
+                    lessonTitle: lessonTitle,
+                    status: status,
+                    comment: comment
+                });
+            }
+        } catch (err) {
+            console.error('Failed to send assessment appeal notification:', err);
+        }
         res.json({ success: true, data: assessmentResult.appeal });
     } catch (err) {
         res.status(500).json({ success: false, message: err.message });
@@ -961,7 +1087,8 @@ router.get('/assessments/manage', protect, authorize('trainer', 'admin', 'super_
                         score: result.score,
                         status: result.status,
                         feedback: result.feedback,
-                        date: result.submissionDate || result.date
+                        date: result.submissionDate || result.date,
+                        appeal: result.appeal
                     });
                 });
             });
@@ -995,7 +1122,8 @@ router.get('/assessments/my', protect, authorize('learner'), async (req, res) =>
                         score: result.score,
                         status: result.status,
                         feedback: result.feedback,
-                        date: result.submissionDate || result.date
+                        date: result.submissionDate || result.date,
+                        appeal: result.appeal
                     });
                 });
             }
